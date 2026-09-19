@@ -34,16 +34,16 @@
     <div class="panel-head">
       <h2>残り</h2>
       <div class="unit-toggle" role="group" aria-label="単位">
-        <button type="button" class="unit-btn is-on" data-unit="m">m</button>
-        <button type="button" class="unit-btn" data-unit="yd">yd</button>
+        <button type="button" class="unit-btn is-on" data-unit="yd">yd</button>
+        <button type="button" class="unit-btn" data-unit="m">m</button>
       </div>
     </div>
 
     <div class="dist-readout">
       <input class="dist-value" id="distValue" type="number" inputmode="numeric"
-             min="1" max="400" step="1" value="128" aria-label="残り距離">
-      <span class="dist-unit" id="distUnit">m</span>
-      <span class="dist-alt" id="distAlt">140 yd</span>
+             min="1" max="400" step="1" value="140" aria-label="残り距離">
+      <span class="dist-unit" id="distUnit">yd</span>
+      <span class="dist-alt" id="distAlt">128 m</span>
     </div>
 
     <div class="stepper">
@@ -51,6 +51,11 @@
       <button type="button" class="step" data-step="-1">−1</button>
       <button type="button" class="step" data-step="1">＋1</button>
       <button type="button" class="step" data-step="5">＋5</button>
+    </div>
+
+    <div class="aim-row">
+      <span class="cond-label">狙い</span>
+      <div class="chips" id="aimChips" role="group" aria-label="狙い"></div>
     </div>
   </div>
 
@@ -63,6 +68,11 @@
   </div>
 
   <div class="cards" id="cards"></div>
+
+  <div class="panel cset-panel">
+    <h3 class="cset-title">ボールまで持っていく3本</h3>
+    <div id="carrySet"></div>
+  </div>
 
   <div class="notes" id="notes"></div>
 
@@ -98,7 +108,7 @@
   </details>
 
   <div class="panel ladder-panel">
-    <h3 class="ladder-title">距離ラダー</h3>
+    <h3 class="ladder-title" id="ladderTitle">距離ラダー（キャリー）</h3>
     <div class="ladder" id="ladder"></div>
   </div>
 
@@ -141,9 +151,9 @@
     </div>
     <div class="dist-readout">
       <input class="dist-value" id="hzValue" type="number" inputmode="numeric"
-             min="1" max="400" step="1" value="180" aria-label="ハザードまでの距離">
-      <span class="dist-unit" id="hzUnit">m</span>
-      <span class="dist-alt" id="hzAlt">197 yd</span>
+             min="1" max="400" step="1" value="195" aria-label="ハザードまでの距離">
+      <span class="dist-unit" id="hzUnit">yd</span>
+      <span class="dist-alt" id="hzAlt">178 m</span>
     </div>
     <div class="stepper">
       <button type="button" class="step" data-hzstep="-10">−10</button>
@@ -154,8 +164,8 @@
     <div class="green-line">
       <span>グリーンまで</span>
       <input class="green-value" id="greenValue" type="number" inputmode="numeric"
-             min="1" max="500" step="1" value="220" aria-label="グリーンまでの距離">
-      <span class="dist-unit" id="greenUnit">m</span>
+             min="1" max="500" step="1" value="240" aria-label="グリーンまでの距離">
+      <span class="dist-unit" id="greenUnit">yd</span>
       <div class="stepper stepper--tight">
         <button type="button" class="step" data-grstep="-10">−10</button>
         <button type="button" class="step" data-grstep="10">＋10</button>

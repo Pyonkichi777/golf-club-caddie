@@ -4,22 +4,24 @@
    ══════════════════════════════════════════════════════════ */
 'use strict';
 
-const STORE_KEY = 'caddie.state.v1';
+const STORE_KEY = 'caddie.state.v2';
 
 let DATA = null;
 let CORR = null;
+let AIM = null;
 let YPM = 1.0936;
 
 const state = {
-  unit: 'm',
-  dist: 128,
-  hazard: 180,
-  green: 220,
+  unit: 'yd',
+  dist: 140,
+  hazard: 195,
+  green: 240,
   elevYd: 0,
   windDir: 'none',
   windMs: 4,
   lie: 'fairway',
   tempC: 20,
+  aim: 'green',   // green = キャリーで合わせる ／ run = トータル(キャリー+ラン)で合わせる
   screen: 'pick',
 };
 
@@ -62,6 +64,20 @@ function usableClubs(field) {
 }
 
 /**
+ * 番手側の距離。狙いで基準が変わる。
+ *   green = キャリー         … 落ちた場所が結果を決める場面（グリーンに乗せる・ハザードを越す）
+ *   run   = キャリー + ラン  … 転がりを味方にする場面（フェアウェイに置く・手前から転がす）
+ * ランは56°の5ydから1Wの30ydまで幅があるので、この区別は遠い番手ほど大きく効く。
+ */
+function basisYd(club, field) {
+  return state.aim === 'run' ? club[field] + (club.run_yd || 0) : club[field];
+}
+
+function aimMode(id) {
+  return AIM.modes.find((m) => m.id === (id || state.aim));
+}
+
+/**
  * 実効距離に対する番手を選ぶ。
  * 仕様の「≧ を満たす最小番手」だけでは、ギャップ帯に落ちたとき
  * 152yd に対して 1W(175) のような非現実的な答えが出るため、
@@ -69,36 +85,63 @@ function usableClubs(field) {
  */
 function pick(field) {
   const eff = effective(toYd(state.dist));
-  const asc = usableClubs(field).sort((a, b) => a[field] - b[field]);
+  const asc = usableClubs(field).sort((a, b) => basisYd(a, field) - basisYd(b, field));
   if (!asc.length) return null;
 
-  const over = asc.find((c) => c[field] >= eff);
-  const under = [...asc].reverse().find((c) => c[field] < eff);
+  const v = (c) => basisYd(c, field);
+  const over = asc.find((c) => v(c) >= eff);
+  const under = [...asc].reverse().find((c) => v(c) < eff);
   const NEAR = CORR.near_threshold_yd;
 
-  if (!over) return { club: under, delta: under[field] - eff, unreachable: true };
-  if (!under) return { club: over, delta: over[field] - eff };
+  if (!over) return { club: under, basis: v(under), delta: v(under) - eff, unreachable: true, asc };
+  if (!under) return { club: over, basis: v(over), delta: v(over) - eff, asc };
 
-  const dOver = over[field] - eff;
-  const dUnder = eff - under[field];
+  const dOver = v(over) - eff;
+  const dUnder = eff - v(under);
   const club = dOver <= dUnder ? over : under;
   return {
     club,
-    delta: club[field] - eff,
+    basis: v(club),
+    delta: v(club) - eff,
     over,
     under,
     inGap: dOver > NEAR && dUnder > NEAR,
+    asc,
   };
 }
 
-/** 推奨対象のクラブ間で15yd以上空いている区間 */
-function gapList() {
-  const desc = usableClubs('carry_game_yd').sort((a, b) => b.carry_game_yd - a.carry_game_yd);
+/**
+ * ボールまで歩くときに持っていくクラブ。
+ * 推奨を中心に上下1番手ずつ取る。番手を読み違えても、外しても、
+ * カートまで戻らずに次が打てるようにするため。
+ */
+function carrySet(res, field) {
+  if (!res) return [];
+  const n = DATA.carry_set?.count ?? 3;
+  const asc = res.asc;
+  const i = asc.indexOf(res.club);
+  let lo = i - Math.floor((n - 1) / 2);
+  lo = clamp(lo, 0, Math.max(0, asc.length - n));
+  return asc.slice(lo, lo + n).reverse().map((c) => ({
+    club: c,
+    yd: basisYd(c, field),
+    isPick: c === res.club,
+  }));
+}
+
+/**
+ * 推奨対象のクラブ間で15yd以上空いている区間。
+ * useAim=false（既定）はキャリー基準。クラブの買い足し判断は常にキャリーで見る。
+ * useAim=true はラダーの目盛りと軸を揃えるため、表示中の基準に合わせる。
+ */
+function gapList(useAim = false) {
+  const val = (c) => (useAim ? basisYd(c, 'carry_game_yd') : c.carry_game_yd);
+  const desc = usableClubs('carry_game_yd').sort((a, b) => val(b) - val(a));
   const out = [];
   for (let i = 0; i < desc.length - 1; i++) {
     const hi = desc[i];
     const lo = desc[i + 1];
-    const yd = hi.carry_game_yd - lo.carry_game_yd;
+    const yd = val(hi) - val(lo);
     if (yd >= CORR.gap_threshold_yd) {
       // ドライバーは基本ティーショット専用。1Wと次の番手の間が空くのは
       // どのバッグでも起きることで、埋める対象ではないため優先度を下げる
@@ -142,7 +185,21 @@ function renderCards() {
     const name = el('div', 'card-club', res.club.name);
     if (res.club.name.length >= 4) name.classList.add('is-long');
     card.appendChild(name);
-    card.appendChild(el('div', 'card-carry', `${res.club[s.field]}yd / ${r0(toM(res.club[s.field]))}m`));
+
+    // キャリーとトータルを常に両方出す。どちらで合わせているかを太字で示す。
+    // この差はランの量そのもので、56°の5ydから1Wの30ydまで開く。
+    const carry = res.club[s.field];
+    const total = carry + (res.club.run_yd || 0);
+    const dist = el('div', 'card-carry');
+    const line = (label, yd, on) => {
+      const n = el('div', 'cn' + (on ? ' is-basis' : ''));
+      n.appendChild(el('span', 'cl', label));
+      n.appendChild(el('span', 'cv', `${yd}yd`));
+      return n;
+    };
+    dist.appendChild(line('キャリー', carry, state.aim !== 'run'));
+    dist.appendChild(line('トータル', total, state.aim === 'run'));
+    card.appendChild(dist);
 
     const d = el('div', 'card-delta', res.unreachable ? '届きません' : deltaText(res.delta));
     d.dataset.sign = res.delta < -0.5 ? 'short' : res.delta > 0.5 ? 'over' : 'even';
@@ -171,18 +228,25 @@ function renderNotes() {
     host.appendChild(n);
   };
 
-  const game = pick('carry_game_yd');
+  const F = 'carry_game_yd';
+  const game = pick(F);
   if (!game) return;
+  const eff = effective(toYd(state.dist));
+  const v = (c) => basisYd(c, F);
 
   if (game.unreachable) {
-    add('gap', `実効距離が最長番手(${game.club.name} ${game.club.carry_game_yd}yd)を超えています。刻む前提でレイアップ地点を選んでください。`);
+    add('gap', `実効距離が最長番手(${game.club.name} ${v(game.club)}yd)を超えています。刻む前提でレイアップ地点を選んでください。`);
   } else if (game.inGap) {
     add('gap',
-      `ギャップ帯です。${game.over.name}(${game.over.carry_game_yd}yd)では` +
-      `${r0(game.over.carry_game_yd - effective(toYd(state.dist)))}yd余り、` +
-      `${game.under.name}(${game.under.carry_game_yd}yd)では` +
-      `${r0(effective(toYd(state.dist)) - game.under.carry_game_yd)}ydショートします。` +
+      `ギャップ帯です。${game.over.name}(${v(game.over)}yd)では` +
+      `${r0(v(game.over) - eff)}yd余り、` +
+      `${game.under.name}(${v(game.under)}yd)では` +
+      `${r0(eff - v(game.under))}ydショートします。` +
       `どちらに外すのが安全かで選んでください。`);
+  }
+
+  if (state.aim === 'run') {
+    add('warn', `トータル基準（ランを含む）で計算しています。${aimMode().warn}`);
   }
 
   if (game.club.warn) add('warn', `${game.club.name}：${game.club.warn}`);
@@ -199,6 +263,29 @@ function renderNotes() {
   }
 }
 
+/* ─────────── 描画: 持っていく3本 ─────────── */
+
+function renderCarrySet() {
+  const host = $('carrySet');
+  host.textContent = '';
+  const F = 'carry_game_yd';
+  const res = pick(F);
+  const set = carrySet(res, F);
+  if (!set.length) return;
+
+  const row = el('div', 'cset-row');
+  for (const it of set) {
+    const b = el('div', 'cset-club');
+    if (it.isPick) b.dataset.pick = '1';
+    b.appendChild(el('div', 'cset-name', it.club.name));
+    b.appendChild(el('div', 'cset-yd', `${it.yd}`));
+    row.appendChild(b);
+  }
+  host.appendChild(row);
+  host.appendChild(el('p', 'cset-why',
+    '番手を読み違えても、当たりが悪くても、カートまで戻らずに次が打てる組み合わせ。'));
+}
+
 /* ─────────── 描画: 距離ラダー ─────────── */
 
 function renderLadder() {
@@ -207,16 +294,21 @@ function renderLadder() {
   const host = el('div', 'ladder-scale');
   outer.appendChild(host);
 
-  const clubs = usableClubs('carry_game_yd').sort((a, b) => a.carry_game_yd - b.carry_game_yd);
+  const F = 'carry_game_yd';
+  const v = (c) => basisYd(c, F);
+  const clubs = usableClubs(F).sort((a, b) => v(a) - v(b));
   if (!clubs.length) return;
 
-  const lo = clubs[0].carry_game_yd - 12;
-  const hi = clubs[clubs.length - 1].carry_game_yd + 18;
+  $('ladderTitle').textContent =
+    state.aim === 'run' ? '距離ラダー（トータル）' : '距離ラダー（キャリー）';
+
+  const lo = v(clubs[0]) - 12;
+  const hi = v(clubs[clubs.length - 1]) + 18;
   const pos = (yd) => ((yd - lo) / (hi - lo)) * 100;
 
   host.appendChild(el('div', 'ladder-axis'));
 
-  for (const g of gapList()) {
+  for (const g of gapList(true)) {
     const band = el('div', 'ladder-gap');
     band.dataset.pri = g.priority;
     band.style.left = pos(g.from) + '%';
@@ -228,10 +320,10 @@ function renderLadder() {
   clubs.forEach((c, i) => {
     const node = el('div', 'ladder-club');
     node.dataset.alt = i % 2 ? '1' : '0';
-    node.style.left = pos(c.carry_game_yd) + '%';
+    node.style.left = pos(v(c)) + '%';
     node.appendChild(el('div', 'ladder-tick'));
     node.appendChild(el('div', 'ladder-name', c.name));
-    node.appendChild(el('div', 'ladder-yd', String(c.carry_game_yd)));
+    node.appendChild(el('div', 'ladder-yd', String(v(c))));
     host.appendChild(node);
   });
 
@@ -261,6 +353,9 @@ function renderEff() {
 /* ─────────── 描画: 距離入力 ─────────── */
 
 function renderDist() {
+  // 保存された単位で起動することがあるので、トグルの見た目を毎回合わせる
+  document.querySelectorAll('.unit-btn').forEach((x) => x.classList.toggle('is-on', x.dataset.unit === state.unit));
+
   $('distValue').value = state.dist;
   $('distUnit').textContent = state.unit;
   const other = state.unit === 'm' ? `${r0(toYd(state.dist))} yd` : `${r0(toM(state.dist))} m`;
@@ -495,6 +590,7 @@ function renderAll() {
   renderCondSummary();
   renderEff();
   renderCards();
+  renderCarrySet();
   renderNotes();
   renderLadder();
   renderTable();
@@ -534,6 +630,12 @@ function elevItems() {
 }
 
 function refreshChips() {
+  // 狙いの説明文は常時は出さない。既定(グリーンに乗せる)は自明で、
+  // 切り替えたときだけ注意書きに出せば足りる。ここは高さが答えを押し下げる
+  buildChips($('aimChips'),
+    AIM.modes.map((m) => ({ label: m.label, v: m.id })),
+    (i) => i.v === state.aim, (i) => { state.aim = i.v; });
+
   buildChips($('elevChips'), elevItems(), (i) => i.v === state.elevYd, (i) => { state.elevYd = i.v; });
 
   buildChips($('windDirChips'), [
@@ -656,9 +758,13 @@ async function boot() {
   }
 
   CORR = DATA.corrections;
+  AIM = DATA.aim_modes;
   YPM = DATA.unit.yd_per_m;
+  state.unit = DATA.unit.input_default || 'yd';
+  state.aim = AIM.default || 'green';
   load();
   if (!CORR.lie[state.lie]) state.lie = 'fairway';
+  if (!aimMode()) state.aim = AIM.default;
 
   const usable = DATA.clubs.filter((c) => c.recommendable).length;
   $('bagNote').textContent = `推奨対象 ${usable}本 / バッグ ${DATA.clubs.length + 1}本`;

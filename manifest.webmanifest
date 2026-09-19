@@ -1,0 +1,17 @@
+{
+  "name": "Yardage Caddie",
+  "short_name": "Caddie",
+  "description": "残りヤードから使用クラブを推奨する個人用キャディ",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F6F3EA",
+  "theme_color": "#15181C",
+  "lang": "ja",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

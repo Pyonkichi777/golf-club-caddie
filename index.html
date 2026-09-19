@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Yardage Caddie</title>
+<meta name="description" content="残りヤードから使用クラブを推奨する個人用キャディ">
+<meta name="theme-color" content="#15181C">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Caddie">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="preload" href="fonts/big-shoulders-display-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="flagmark" aria-hidden="true"></span>
+    <span class="brand-name">YARDAGE CADDIE</span>
+  </div>
+  <div class="bag-note" id="bagNote">—</div>
+</header>
+
+<main>
+
+<!-- ══════════════ 画面1: クラブ推奨 ══════════════ -->
+<section class="screen is-active" id="screen-pick" aria-label="クラブ推奨">
+
+  <div class="panel dist-panel">
+    <div class="panel-head">
+      <h2>残り</h2>
+      <div class="unit-toggle" role="group" aria-label="単位">
+        <button type="button" class="unit-btn is-on" data-unit="m">m</button>
+        <button type="button" class="unit-btn" data-unit="yd">yd</button>
+      </div>
+    </div>
+
+    <div class="dist-readout">
+      <input class="dist-value" id="distValue" type="number" inputmode="numeric"
+             min="1" max="400" step="1" value="128" aria-label="残り距離">
+      <span class="dist-unit" id="distUnit">m</span>
+      <span class="dist-alt" id="distAlt">140 yd</span>
+    </div>
+
+    <div class="stepper">
+      <button type="button" class="step" data-step="-5">−5</button>
+      <button type="button" class="step" data-step="-1">−1</button>
+      <button type="button" class="step" data-step="1">＋1</button>
+      <button type="button" class="step" data-step="5">＋5</button>
+    </div>
+  </div>
+
+  <div class="eff-strip">
+    <span class="eff-label">実効距離</span>
+    <strong class="eff-value" id="effValue">152</strong>
+    <span class="eff-unit">yd</span>
+    <span class="eff-alt" id="effAlt">139 m</span>
+    <span class="eff-delta" id="effDelta">+12</span>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="notes" id="notes"></div>
+
+  <details class="panel cond-panel" id="condPanel">
+    <summary class="cond-summary">
+      <span class="cond-summary-label">条件</span>
+      <span class="cond-summary-text" id="condSummary">平坦・無風・フェアウェイ・春秋</span>
+      <span class="cond-summary-caret" aria-hidden="true"></span>
+    </summary>
+    <div class="cond-row">
+      <span class="cond-label">高低差</span>
+      <div class="chips chips--wrap" id="elevChips" role="group" aria-label="高低差"></div>
+    </div>
+    <div class="cond-row">
+      <span class="cond-label">風</span>
+      <div class="chips" id="windDirChips" role="group" aria-label="風向き"></div>
+    </div>
+    <div class="cond-row cond-row--sub" id="windSpeedRow">
+      <span class="cond-label"></span>
+      <div class="chips" id="windSpeedChips" role="group" aria-label="風の強さ"></div>
+    </div>
+    <div class="cond-row">
+      <span class="cond-label">ライ</span>
+      <div class="chips chips--wrap" id="lieChips" role="group" aria-label="ライ"></div>
+    </div>
+    <div class="cond-row">
+      <span class="cond-label">気温</span>
+      <div class="chips" id="tempChips" role="group" aria-label="気温"></div>
+    </div>
+    <div class="cond-foot">
+      <button type="button" class="reset-btn" id="resetCond">条件をリセット</button>
+    </div>
+  </details>
+
+  <div class="panel ladder-panel">
+    <h3 class="ladder-title">距離ラダー</h3>
+    <div class="ladder" id="ladder"></div>
+  </div>
+
+  <button type="button" class="jump-layup" data-goto="layup">この距離で刻む判断をする →</button>
+</section>
+
+<!-- ══════════════ 画面2: 距離表 ══════════════ -->
+<section class="screen" id="screen-table" aria-label="距離表">
+  <div class="panel">
+    <h2 class="sec-title">距離表</h2>
+    <p class="sec-sub">推奨は<strong>実戦基準</strong>（平均的な当たり）。<strong>好球時</strong>は計測で出た上限値。</p>
+    <div class="table-wrap">
+      <table class="dtable" id="dtable">
+        <thead>
+          <tr><th>番手</th><th class="num">実戦基準</th><th class="num">(m)</th><th class="num">好球時</th><th>信頼度</th></tr>
+        </thead>
+        <tbody id="dtableBody"></tbody>
+      </table>
+    </div>
+    <p class="legend">★★★ 記録30球以上 ／ ★★☆ 記録10球以上または実測あり ／ ★☆☆ 他番手からの推定</p>
+  </div>
+
+  <div class="panel">
+    <h3 class="sec-title">ギャップ</h3>
+    <div class="gaps" id="gaps"></div>
+  </div>
+
+  <div class="panel">
+    <h3 class="sec-title">数字の出どころ</h3>
+    <div class="sources" id="sources"></div>
+  </div>
+</section>
+
+<!-- ══════════════ 画面3: 刻む ══════════════ -->
+<section class="screen" id="screen-layup" aria-label="刻む">
+  <div class="panel dist-panel">
+    <div class="panel-head">
+      <h2>ハザードまで</h2>
+      <span class="panel-note">通常画面の補正をそのまま使います</span>
+    </div>
+    <div class="dist-readout">
+      <input class="dist-value" id="hzValue" type="number" inputmode="numeric"
+             min="1" max="400" step="1" value="180" aria-label="ハザードまでの距離">
+      <span class="dist-unit" id="hzUnit">m</span>
+      <span class="dist-alt" id="hzAlt">197 yd</span>
+    </div>
+    <div class="stepper">
+      <button type="button" class="step" data-hzstep="-10">−10</button>
+      <button type="button" class="step" data-hzstep="-5">−5</button>
+      <button type="button" class="step" data-hzstep="5">＋5</button>
+      <button type="button" class="step" data-hzstep="10">＋10</button>
+    </div>
+    <div class="green-line">
+      <span>グリーンまで</span>
+      <input class="green-value" id="greenValue" type="number" inputmode="numeric"
+             min="1" max="500" step="1" value="220" aria-label="グリーンまでの距離">
+      <span class="dist-unit" id="greenUnit">m</span>
+      <div class="stepper stepper--tight">
+        <button type="button" class="step" data-grstep="-10">−10</button>
+        <button type="button" class="step" data-grstep="10">＋10</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="layup-out" id="layupOut"></div>
+</section>
+
+</main>
+
+<nav class="tabs" role="tablist">
+  <button type="button" class="tab is-on" data-goto="pick" role="tab">推奨</button>
+  <button type="button" class="tab" data-goto="table" role="tab">距離表</button>
+  <button type="button" class="tab" data-goto="layup" role="tab">刻む</button>
+</nav>
+
+<div class="boot-error" id="bootError" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>

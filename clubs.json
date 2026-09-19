@@ -1,0 +1,241 @@
+{
+  "schema_version": "0.4",
+  "updated": "2026-09-19",
+  "note": "クラブ距離データの唯一の正。アプリはここを読む。手で編集してよいが、必ずコミットすること。",
+
+  "privacy": {
+    "note": "このファイルは公開リポジトリに置く。氏名・コース名・ラウンド日・位置情報は書かないこと。計測の出どころは『2026-07 練習場計測』程度の粒度に留める。ショットログの生データ(日付・コース名を含む)は非公開リポジトリ側に置く。",
+    "checked": "2026-09-19"
+  },
+
+  "formula": {
+    "note": "符号の定義。ここを間違えると番手が逆に出るので必ず読むこと",
+    "steps": [
+      "base_yd = 入力距離(m) × 1.0936",
+      "実効距離 = base_yd + 標高差補正 + base_yd × (合計ロス率 ÷ 100)",
+      "標高差補正: 打ち上げは elevation_yd(正) × uphill_factor、打ち下ろしは elevation_yd(負) × downhill_factor",
+      "合計ロス率 = 風ロス率 + ライのロス率 + 気温ロス率",
+      "ロス率は『飛距離がその分落ちる』という意味。正の値ほど実効距離が伸びて、大きい番手が推奨される"
+    ]
+  },
+
+  "unit": {
+    "internal": "yd",
+    "input_default": "m",
+    "yd_per_m": 1.0936,
+    "note": "距離計を持っていないため、残り距離はカートナビ・ヤーデージ杭から読む。日本のコースは大半がメートル表示"
+  },
+
+  "input_precision": {
+    "estimated_error_yd": 7,
+    "note": "距離計なしの目測・杭読みのため入力値の誤差は±5〜10yd。これより細かい補正は意味を持たないので、補正入力はすべてボタン選択の粗い粒度にする"
+  },
+
+  "corrections": {
+    "elevation": {
+      "uphill_factor": 1.0,
+      "downhill_factor": 0.8,
+      "presets_yd": { "slight": 5, "mid": 10, "large": 20 },
+      "comment": "打ち下ろしは落下角が立つぶん効きが弱い。距離計がないため目測の3段階ボタンを既定とする"
+    },
+    "wind": {
+      "head_loss_pct_per_ms": 2.5,
+      "tail_gain_pct_per_ms": 1.2,
+      "presets_ms": { "weak": 2, "mid": 4, "strong": 7 },
+      "comment": "追い風は向かい風の約半分しか効かない。横風は距離補正せず方向の警告のみ"
+    },
+    "lie": {
+      "fairway":      { "label": "フェアウェイ", "carry_loss_pct": 0,  "warn": null },
+      "rough":        { "label": "ラフ",         "carry_loss_pct": 8,  "warn": "フライヤーで飛ぶ場合もある。距離より確実性を優先" },
+      "toe_up":       { "label": "つま先上がり", "carry_loss_pct": 5,  "warn": "左へ出やすい" },
+      "toe_down":     { "label": "つま先下がり", "carry_loss_pct": 5,  "warn": "右へ出やすい" },
+      "uphill_lie":   { "label": "左足上がり",   "carry_loss_pct": 5,  "warn": "高弾道になる" },
+      "downhill_lie": { "label": "左足下がり",   "carry_loss_pct": 0,  "warn": "低弾道・ランが増える" },
+      "bunker":       { "label": "バンカー",     "carry_loss_pct": 15, "warn": "距離より脱出を優先" }
+    },
+    "temperature": {
+      "base_c": 20,
+      "loss_pct_per_10c_below_base": 2,
+      "presets": [
+        { "id": "summer", "label": "夏",   "c": 30 },
+        { "id": "normal", "label": "春秋", "c": 20 },
+        { "id": "winter", "label": "冬",   "c": 8 }
+      ],
+      "comment": "影響は入力誤差と同程度。3択で十分"
+    },
+    "layup_margin_yd": 10,
+    "near_threshold_yd": 5,
+    "gap_threshold_yd": 15
+  },
+
+  "update_rule": {
+    "note": "距離計がないため実測キャリーを記録できない。ショート/オーバーの偏りから基準値を推定する(Phase 2で実装)",
+    "window": 10,
+    "short_rate_threshold": 0.6,
+    "over_rate_threshold": 0.6,
+    "step_yd": 5,
+    "auto_apply": false,
+    "confidence_thresholds": { "two_star": 10, "three_star": 30 }
+  },
+
+  "clubs": [
+    {
+      "id": "1w",
+      "name": "1W",
+      "full_name": "ドライバー",
+      "model": "PING G430 MAX",
+      "shaft": "ALTA J CB / R",
+      "loft_deg": 12,
+      "in_bag": true,
+      "recommendable": true,
+      "tee_club": true,
+      "carry_game_yd": 175,
+      "carry_best_yd": 189,
+      "run_yd": 30,
+      "shots_measured": 2,
+      "confidence": "measured",
+      "source": "2026-07 練習場計測(キャリー189.20/トータル209.86/初速55.8m\/s/打出15.4°/スピン1885rpm)、2026-08 計測(キャリー173/トータル193/初速53.0m\/s/打出16.4°/スピン1960rpm)。自分のクラブ",
+      "warn": "右に出やすい。前回ラウンドの課題番手"
+    },
+    {
+      "id": "5ut",
+      "name": "5UT",
+      "full_name": "5番ユーティリティ",
+      "model": "PING G440",
+      "shaft": "自分はSR(計測時は教室レンタルのR)",
+      "loft_deg": null,
+      "in_bag": true,
+      "recommendable": true,
+      "carry_game_yd": 150,
+      "carry_best_yd": 165,
+      "run_yd": 15,
+      "shots_measured": 0,
+      "confidence": "estimated",
+      "source": "レッスン実感『よく当たると約160yard』。キャリーかトータルか不明。計測はレンタルRシャフト、所有はSR。最優先で要実測",
+      "warn": null
+    },
+    {
+      "id": "5i",
+      "name": "5I",
+      "full_name": "5番アイアン",
+      "model": "スリクソン ZR-600",
+      "shaft": null,
+      "loft_deg": null,
+      "in_bag": true,
+      "recommendable": false,
+      "carry_game_yd": null,
+      "carry_best_yd": null,
+      "run_yd": null,
+      "shots_measured": 0,
+      "confidence": "unusable",
+      "source": "バッグには入っているが実戦では打てない(2026-09-19 確認)。距離データは持たない",
+      "warn": "実戦で打てないため推奨候補から除外。抜いて52°を入れる枠にするのが合理的"
+    },
+    {
+      "id": "6i",
+      "name": "6I",
+      "full_name": "6番アイアン",
+      "model": "スリクソン ZR-600",
+      "shaft": null,
+      "loft_deg": null,
+      "in_bag": true,
+      "recommendable": true,
+      "carry_game_yd": 132,
+      "carry_best_yd": 145,
+      "run_yd": 14,
+      "shots_measured": 0,
+      "confidence": "estimated",
+      "source": "7Iからの内挿推定。スピン実測あり(3759〜3917rpm)だが距離データは未回収",
+      "warn": "アタックアングルが+0.4°でアッパー気味。トップ注意"
+    },
+    {
+      "id": "7i",
+      "name": "7I",
+      "full_name": "7番アイアン",
+      "model": "スリクソン ZR-600",
+      "shaft": null,
+      "loft_deg": null,
+      "in_bag": true,
+      "recommendable": true,
+      "carry_game_yd": 122,
+      "carry_best_yd": 130,
+      "run_yd": 15,
+      "shots_measured": 2,
+      "confidence": "measured",
+      "source": "実測2球(キャリー130.0/トータル145.3/初速43.6m\/s/打出20.9°/スピン3218rpm、キャリー127.5/トータル141.95/初速42.9m\/s/打出22.6°/スピン3395rpm)。自分のクラブ。全番手の基準値",
+      "warn": null
+    },
+    {
+      "id": "8i",
+      "name": "8I",
+      "full_name": "8番アイアン",
+      "model": "スリクソン ZR-600",
+      "shaft": null,
+      "loft_deg": null,
+      "in_bag": true,
+      "recommendable": true,
+      "carry_game_yd": 110,
+      "carry_best_yd": 120,
+      "run_yd": 12,
+      "shots_measured": 0,
+      "confidence": "estimated",
+      "source": "7Iからの内挿推定。実測データなし",
+      "warn": null
+    },
+    {
+      "id": "9i",
+      "name": "9I",
+      "full_name": "9番アイアン",
+      "model": "スリクソン ZR-600",
+      "shaft": null,
+      "loft_deg": null,
+      "in_bag": true,
+      "recommendable": true,
+      "carry_game_yd": 100,
+      "carry_best_yd": 110,
+      "run_yd": 10,
+      "shots_measured": 0,
+      "confidence": "estimated",
+      "source": "7Iからの内挿推定。スピン実測あり(5199〜5613rpm)だが距離データは未回収",
+      "warn": null
+    },
+    {
+      "id": "pw",
+      "name": "PW",
+      "full_name": "ピッチングウェッジ",
+      "model": "スリクソン ZR-600",
+      "shaft": null,
+      "loft_deg": null,
+      "in_bag": true,
+      "recommendable": true,
+      "carry_game_yd": 90,
+      "carry_best_yd": 100,
+      "run_yd": 8,
+      "shots_measured": 0,
+      "confidence": "estimated",
+      "source": "7Iからの内挿推定。実測データなし",
+      "warn": "転がすか上げるかを先に決めてからボール位置を選ぶ"
+    },
+    {
+      "id": "sw56",
+      "name": "56°",
+      "full_name": "サンドウェッジ 56°",
+      "model": "キャスコ ドルフィンウェッジ DW-123",
+      "shaft": "N.S.PRO 950GH neo / 35インチ / D3 / ウェッジフレックス",
+      "loft_deg": 56,
+      "in_bag": true,
+      "recommendable": true,
+      "carry_game_yd": 70,
+      "carry_best_yd": 80,
+      "run_yd": 5,
+      "shots_measured": 0,
+      "confidence": "estimated",
+      "source": "実測なし。スペックは実物で確認済み",
+      "warn": "AWではなくSW。PWとの間に20ydの空白がある"
+    }
+  ],
+
+  "loft_note": "ZR-600にはロフトの刻印がない(2026-09-19 実物確認)。カタログ値も未取得のため loft_deg は null。番手間の距離は実測で埋める方が確実なため、ロフトへの依存を仕様から外した",
+
+  "bag_note": "バッグ10本(1W/5UT/5I/6I/7I/8I/9I/PW/56°/パター)のうち5Iは実戦で打てないため、推奨対象は8本。5Iを抜いて52°を入れれば最優先ギャップ(70〜90yd帯)が1本で解消する"
+}

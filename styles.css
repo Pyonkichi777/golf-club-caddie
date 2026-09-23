@@ -218,7 +218,7 @@ main { padding: 12px 12px 24px; max-width: 560px; margin: 0 auto; }
 .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
 .card {
   border: 1.5px solid var(--ink); border-radius: var(--r);
-  padding: 12px 12px 14px; background: var(--panel);
+  padding: 12px 12px 10px; background: var(--panel);
   display: flex; flex-direction: column; gap: 2px; min-width: 0;
 }
 .card--primary { background: var(--ink); color: var(--panel); border-color: var(--ink); }
@@ -232,6 +232,18 @@ main { padding: 12px 12px 24px; max-width: 560px; margin: 0 auto; }
   letter-spacing: -.01em; word-break: keep-all;
 }
 .card-club.is-long { font-size: 44px; }
+
+/* 得意/苦手の札。番手名の右肩に小さく付ける */
+.skill-tag {
+  display: inline-block; vertical-align: top; margin-left: 6px; margin-top: 4px;
+  font-family: var(--font-ui); font-size: 10px; font-weight: 700; letter-spacing: .06em;
+  padding: 2px 6px; border-radius: var(--r); line-height: 1.4;
+}
+.skill-tag[data-skill="good"] { background: var(--turf); color: #fff; }
+.skill-tag[data-skill="weak"] { background: var(--warn-sk); color: #5D3800; border: 1px solid var(--warn); }
+/* 乗り換えたときに併記する「距離だけなら」 */
+.card-alt { font-size: 10.5px; line-height: 1.45; color: var(--ink-3); margin-top: 3px; white-space: nowrap; }
+.card--primary .card-alt { color: #A8AEB6; }
 /* キャリーとトータルを常に両方出し、いま合わせている側を太字にする。
    この差はランそのもので、56°の5ydから1Wの30ydまで開く。
    1行に並べると折り返して読みにくいので2行に固定する */
@@ -249,7 +261,7 @@ main { padding: 12px 12px 24px; max-width: 560px; margin: 0 auto; }
 .card--primary .card-delta[data-sign="short"] { color: #FF8A5E; }
 .card-delta[data-sign="over"] { color: var(--turf); }
 .card--primary .card-delta[data-sign="over"] { color: #7FC9A0; }
-.card-conf { font-size: 11px; color: var(--ink-3); letter-spacing: .06em; margin-top: auto; padding-top: 6px; }
+.card-conf { font-size: 11px; color: var(--ink-3); letter-spacing: .06em; margin-top: auto; padding-top: 3px; }
 .card--primary .card-conf { color: #8A9098; }
 .card-none { font-size: 14px; font-weight: 700; padding: 14px 0; }
 
@@ -284,6 +296,7 @@ main { padding: 12px 12px 24px; max-width: 560px; margin: 0 auto; }
 .note[data-kind="warn"] { border-left-color: var(--warn); background: var(--warn-sk); color: #5D3800; }
 .note[data-kind="gap"]  { border-left-color: var(--flag); background: var(--flag-sk); color: #7A2208; font-weight: 500; }
 .note[data-kind="info"] { border-left-color: var(--ink-3); color: var(--ink-2); }
+.note[data-kind="skill"] { border-left-color: var(--turf); background: var(--turf-sk); color: #123D27; }
 
 /* ─────────── 距離ラダー ─────────── */
 .ladder-panel { padding: 12px 14px 16px; }
@@ -356,6 +369,29 @@ main { padding: 12px 12px 24px; max-width: 560px; margin: 0 auto; }
 .src:last-child { border-bottom: 0; padding-bottom: 0; }
 .src b { font-family: var(--font-num); font-size: 17px; letter-spacing: .02em; }
 .src span { color: var(--ink-2); }
+
+/* ラダーでも得意/苦手が一目で分かるように、番手名の色だけ変える */
+.ladder-club[data-skill="good"] .ladder-name { color: var(--turf); }
+.ladder-club[data-skill="weak"] .ladder-name { color: var(--warn); }
+
+/* ─────────── 得意・苦手 ─────────── */
+.skill-list { display: flex; flex-direction: column; }
+.skill-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid var(--rule-2);
+}
+.skill-row:last-child { border-bottom: 0; }
+.skill-name {
+  font-family: var(--font-num); font-weight: 800; font-size: 22px; line-height: 1.1;
+  width: 64px; flex: none;
+}
+.skill-today {
+  display: block; font-family: var(--font-ui); font-size: 9.5px; font-weight: 700;
+  color: var(--flag); letter-spacing: .02em; line-height: 1.3; margin-top: 2px;
+}
+.skill-row .chip.is-on[data-skill="good"] { background: var(--turf); border-color: var(--turf); }
+.skill-row .chip.is-on[data-skill="weak"] { background: var(--warn); border-color: var(--warn); }
+#skillReset { margin-top: 8px; }
 
 /* ─────────── 刻む ─────────── */
 .green-line {

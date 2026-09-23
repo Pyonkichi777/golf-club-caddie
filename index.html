@@ -118,6 +118,14 @@
 <!-- ══════════════ 画面2: 距離表 ══════════════ -->
 <section class="screen" id="screen-table" aria-label="距離表">
   <div class="panel">
+    <h2 class="sec-title">得意・苦手</h2>
+    <p class="sec-sub">ズレが1番手（10yd）以内なら<strong>得意</strong>な番手を優先し、<strong>苦手</strong>な番手は避けます。
+      ここで変えた分は<strong>今日だけ</strong>で、日付が変わると普段の設定に戻ります。</p>
+    <div class="skill-list" id="skillList"></div>
+    <button type="button" class="reset-btn" id="skillReset" hidden>今日の変更をすべて戻す</button>
+  </div>
+
+  <div class="panel">
     <h2 class="sec-title">距離表</h2>
     <p class="sec-sub">推奨は<strong>実戦基準</strong>（平均的な当たり）。<strong>好球時</strong>は計測で出た上限値。</p>
     <div class="table-wrap">

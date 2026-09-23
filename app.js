@@ -77,13 +77,52 @@ function aimMode(id) {
   return AIM.modes.find((m) => m.id === (id || state.aim));
 }
 
+/* ─────────── 得意・苦手 ─────────── */
+/* 普段の得意/苦手は clubs.json の skill。ラウンド中の「今日は7Iが当たらない」は
+   アプリで上書きでき、日付が変わると自動で元に戻る（上書きは正ではないので端末にだけ置く）。 */
+
+const TODAY_KEY = 'caddie.today.v1';
+let TODAY = { date: '', skills: {} };
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function todaySkills() {
+  if (TODAY.date !== todayStr()) TODAY = { date: todayStr(), skills: {} };
+  return TODAY.skills;
+}
+
+function loadToday() {
+  try {
+    const t = JSON.parse(localStorage.getItem(TODAY_KEY) || 'null');
+    if (t && t.date === todayStr() && t.skills) TODAY = t;
+  } catch (_) { /* 壊れていたら上書きなしで起動 */ }
+}
+
+function saveToday() {
+  try { localStorage.setItem(TODAY_KEY, JSON.stringify(TODAY)); } catch (_) { /* プライベートモード等 */ }
+}
+
+const skillBase = (c) => c.skill || 'normal';
+const skillOf = (c) => todaySkills()[c.id] || skillBase(c);
+const skillLabel = (s) => DATA.skill_rules.labels[s];
+
+/** 得意なら距離のズレを小さく、苦手なら大きく見積もる（yd換算） */
+function skillAdjust(c) {
+  const R = DATA.skill_rules;
+  const s = skillOf(c);
+  return s === 'good' ? -R.good_bonus_yd : s === 'weak' ? R.weak_penalty_yd : 0;
+}
+
 /**
- * 実効距離に対する番手を選ぶ。
+ * 実効距離に対する番手を、距離だけで選ぶ。
  * 仕様の「≧ を満たす最小番手」だけでは、ギャップ帯に落ちたとき
  * 152yd に対して 1W(175) のような非現実的な答えが出るため、
  * 上下の番手を見て近いほうを推奨し、差を必ず明示する。
  */
-function pick(field) {
+function pickByDistance(field) {
   const eff = effective(toYd(state.dist));
   const asc = usableClubs(field).sort((a, b) => basisYd(a, field) - basisYd(b, field));
   if (!asc.length) return null;
@@ -108,6 +147,34 @@ function pick(field) {
     inGap: dOver > NEAR && dUnder > NEAR,
     asc,
   };
+}
+
+/**
+ * 得意/苦手を加味して番手を選ぶ。
+ *   評価 = |距離のズレ| + 苦手ペナルティ − 得意ボーナス   → 最小の番手を推奨
+ * 乗り換え先は、ズレが1番手分（max_override_yd）以内の番手に限る。
+ * 得意だからといって11yd足りないクラブを勧めると、手前のハザードに捕まるため。
+ * 同点なら距離だけで選んだ番手を残す。
+ */
+function pick(field) {
+  const pure = pickByDistance(field);
+  if (!pure) return null;
+  const base = { ...pure, pure: pure.club, pureDelta: pure.delta, overridden: false };
+  if (pure.unreachable) return base;
+
+  const eff = effective(toYd(state.dist));
+  const v = (c) => basisYd(c, field);
+  const score = (c) => Math.abs(v(c) - eff) + skillAdjust(c);
+  const MAX = DATA.skill_rules.max_override_yd;
+
+  let best = pure.club;
+  for (const c of pure.asc) {
+    if (c === pure.club || Math.abs(v(c) - eff) > MAX) continue;
+    if (score(c) < score(best)) best = c;
+  }
+  if (best === pure.club) return base;
+
+  return { ...base, club: best, basis: v(best), delta: v(best) - eff, overridden: true };
 }
 
 /**
@@ -184,6 +251,12 @@ function renderCards() {
 
     const name = el('div', 'card-club', res.club.name);
     if (res.club.name.length >= 4) name.classList.add('is-long');
+    const sk = skillOf(res.club);
+    if (sk !== 'normal') {
+      const tag = el('span', 'skill-tag', skillLabel(sk));
+      tag.dataset.skill = sk;
+      name.appendChild(tag);
+    }
     card.appendChild(name);
 
     // キャリーとトータルを常に両方出す。どちらで合わせているかを太字で示す。
@@ -204,6 +277,15 @@ function renderCards() {
     const d = el('div', 'card-delta', res.unreachable ? '届きません' : deltaText(res.delta));
     d.dataset.sign = res.delta < -0.5 ? 'short' : res.delta > 0.5 ? 'over' : 'even';
     card.appendChild(d);
+
+    // 得意/苦手で乗り換えたときは、距離だけで選んだ番手を必ず併記する。
+    // アプリが黙って判断を変えたように見せないため
+    if (res.overridden) {
+      // 2行に折り返すと「持っていく3本」がフォールド下へ落ちるため、短く1行に収める
+      const pd = r0(res.pureDelta);
+      const signed = pd > 0 ? `+${pd}` : pd < 0 ? `−${-pd}` : '±0';
+      card.appendChild(el('div', 'card-alt', `距離だけなら ${res.pure.name} ${signed}yd`));
+    }
 
     card.appendChild(el('div', 'card-conf', confStars(res.club)));
     host.appendChild(card);
@@ -247,6 +329,29 @@ function renderNotes() {
 
   if (state.aim === 'run') {
     add('warn', `トータル基準（ランを含む）で計算しています。${aimMode().warn}`);
+  }
+
+  if (game.overridden) {
+    const p = game.pure;
+    const c = game.club;
+    const why =
+      skillOf(p) === 'weak' && skillOf(c) === 'good' ? `苦手な${p.name}より、得意な${c.name}を優先しました` :
+      skillOf(p) === 'weak' ? `苦手な${p.name}を避けて${c.name}にしました` :
+      `得意な${c.name}を優先しました`;
+    add('skill',
+      `${why}（${c.name}は${deltaText(game.delta)}）。` +
+      `手前に池やバンカーがあるときは、距離どおり${p.name}を選んでください。`);
+  } else if (skillOf(game.club) === 'weak' && !game.unreachable) {
+    add('skill', `${game.club.name}は苦手クラブですが、距離が合うのはこの番手だけです。`);
+  }
+
+  const overrides = Object.entries(todaySkills());
+  if (overrides.length) {
+    const names = overrides.map(([id, s]) => {
+      const c = DATA.clubs.find((x) => x.id === id);
+      return c ? `${c.name}→${skillLabel(s)}` : null;
+    }).filter(Boolean);
+    add('info', `今日の調子を反映中：${names.join('・')}（日付が変わると元に戻ります）`);
   }
 
   if (game.club.warn) add('warn', `${game.club.name}：${game.club.warn}`);
@@ -320,6 +425,7 @@ function renderLadder() {
   clubs.forEach((c, i) => {
     const node = el('div', 'ladder-club');
     node.dataset.alt = i % 2 ? '1' : '0';
+    node.dataset.skill = skillOf(c);
     node.style.left = pos(v(c)) + '%';
     node.appendChild(el('div', 'ladder-tick'));
     node.appendChild(el('div', 'ladder-name', c.name));
@@ -585,6 +691,44 @@ function renderCondSummary() {
   node.dataset.on = isDefault ? '0' : '1';
 }
 
+/* ─────────── 描画: 得意・苦手（今日の調子） ─────────── */
+
+function renderSkills() {
+  const host = $('skillList');
+  host.textContent = '';
+  const clubs = usableClubs('carry_game_yd').sort((a, b) => b.carry_game_yd - a.carry_game_yd);
+  const today = todaySkills();
+
+  for (const c of clubs) {
+    const row = el('div', 'skill-row');
+    const nm = el('div', 'skill-name', c.name);
+    if (today[c.id]) {
+      nm.appendChild(el('span', 'skill-today', `今日（普段は${skillLabel(skillBase(c))}）`));
+    }
+    row.appendChild(nm);
+
+    const chips = el('div', 'chips');
+    for (const s of ['good', 'normal', 'weak']) {
+      const b = el('button', 'chip', skillLabel(s));
+      b.type = 'button';
+      b.dataset.skill = s;
+      if (skillOf(c) === s) b.classList.add('is-on');
+      b.addEventListener('click', () => {
+        // 普段の設定に戻したら上書きを消す。上書きは「普段と違う」ときだけ持つ
+        if (s === skillBase(c)) delete today[c.id];
+        else today[c.id] = s;
+        saveToday();
+        renderAll();
+      });
+      chips.appendChild(b);
+    }
+    row.appendChild(chips);
+    host.appendChild(row);
+  }
+
+  $('skillReset').hidden = Object.keys(today).length === 0;
+}
+
 function renderAll() {
   renderDist();
   renderCondSummary();
@@ -593,6 +737,7 @@ function renderAll() {
   renderCarrySet();
   renderNotes();
   renderLadder();
+  renderSkills();
   renderTable();
   renderLayup();
   save();
@@ -710,6 +855,12 @@ function bindInputs() {
   numBind('hzValue', 'hazard', 400);
   numBind('greenValue', 'green', 500);
 
+  $('skillReset').addEventListener('click', () => {
+    TODAY = { date: todayStr(), skills: {} };
+    saveToday();
+    renderAll();
+  });
+
   $('resetCond').addEventListener('click', () => {
     state.elevYd = 0; state.windDir = 'none'; state.windMs = CORR.wind.presets_ms.mid;
     state.lie = 'fairway'; state.tempC = CORR.temperature.base_c;
@@ -763,6 +914,7 @@ async function boot() {
   state.unit = DATA.unit.input_default || 'yd';
   state.aim = AIM.default || 'green';
   load();
+  loadToday();
   if (!CORR.lie[state.lie]) state.lie = 'fairway';
   if (!aimMode()) state.aim = AIM.default;
 

@@ -1,6 +1,6 @@
 {
-  "schema_version": "0.5",
-  "updated": "2026-09-19",
+  "schema_version": "0.6",
+  "updated": "2026-09-23",
   "note": "クラブ距離データの唯一の正。アプリはここを読む。手で編集してよいが、必ずコミットすること。",
 
   "privacy": {
@@ -45,6 +45,15 @@
         "warn": "グリーン手前にバンカーや池があるときは使わない。キャリーで越えられるかが先"
       }
     ]
+  },
+
+  "skill_rules": {
+    "note": "得意/苦手を推奨に効かせるルール。評価＝距離のズレ(yd)＋苦手ペナルティ−得意ボーナス。評価が最小の番手を推奨する。ただし距離だけで選んだ番手以外に乗り換えられるのは、ズレが max_override_yd 以内の番手だけ。距離だけで選んだ番手は常にカードに併記する",
+    "good_bonus_yd": 5,
+    "weak_penalty_yd": 5,
+    "max_override_yd": 10,
+    "labels": { "good": "得意", "normal": "普通", "weak": "苦手" },
+    "base_set": "本人確認済み。得意＝6I・7I（前回ラウンドで安定）、苦手＝1W（同ラウンドの課題）・5UT。当日の調子はアプリで一時的に上書きでき、日付が変わると元に戻る"
   },
 
   "carry_set": {
@@ -114,6 +123,7 @@
       "loft_deg": 12,
       "in_bag": true,
       "recommendable": true,
+      "skill": "weak",
       "tee_club": true,
       "carry_game_yd": 175,
       "carry_best_yd": 189,
@@ -132,6 +142,7 @@
       "loft_deg": null,
       "in_bag": true,
       "recommendable": true,
+      "skill": "weak",
       "carry_game_yd": 150,
       "carry_best_yd": 165,
       "run_yd": 15,
@@ -149,6 +160,7 @@
       "loft_deg": null,
       "in_bag": true,
       "recommendable": false,
+      "skill": "normal",
       "carry_game_yd": null,
       "carry_best_yd": null,
       "run_yd": null,
@@ -166,6 +178,7 @@
       "loft_deg": null,
       "in_bag": true,
       "recommendable": true,
+      "skill": "good",
       "carry_game_yd": 132,
       "carry_best_yd": 145,
       "run_yd": 14,
@@ -183,6 +196,7 @@
       "loft_deg": null,
       "in_bag": true,
       "recommendable": true,
+      "skill": "good",
       "carry_game_yd": 122,
       "carry_best_yd": 130,
       "run_yd": 15,
@@ -200,6 +214,7 @@
       "loft_deg": null,
       "in_bag": true,
       "recommendable": true,
+      "skill": "normal",
       "carry_game_yd": 110,
       "carry_best_yd": 120,
       "run_yd": 12,
@@ -217,6 +232,7 @@
       "loft_deg": null,
       "in_bag": true,
       "recommendable": true,
+      "skill": "normal",
       "carry_game_yd": 100,
       "carry_best_yd": 110,
       "run_yd": 10,
@@ -234,6 +250,7 @@
       "loft_deg": null,
       "in_bag": true,
       "recommendable": true,
+      "skill": "normal",
       "carry_game_yd": 90,
       "carry_best_yd": 100,
       "run_yd": 8,
@@ -251,6 +268,7 @@
       "loft_deg": 56,
       "in_bag": true,
       "recommendable": true,
+      "skill": "normal",
       "carry_game_yd": 70,
       "carry_best_yd": 80,
       "run_yd": 5,

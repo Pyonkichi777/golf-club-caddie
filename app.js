@@ -21,7 +21,8 @@ const state = {
   windMs: 4,
   lie: 'fairway',
   tempC: 20,
-  aim: 'green',   // green = キャリーで合わせる ／ run = トータル(キャリー+ラン)で合わせる
+  greenFirm: 'normal',
+  aim: 'green',   // carry = 越える ／ green = 乗せる(キャリー+グリーン上の転がり) ／ run = 転がす(キャリー+ラン)
   screen: 'pick',
 };
 
@@ -64,13 +65,28 @@ function usableClubs(field) {
 }
 
 /**
+ * グリーン上で落ちてから転がる量(yd)。
+ * 実測(green_run_yd)があればそれを使い、なければ計測器のラン×比率を仮の値にする。
+ * 計測器のランは平らなフェアウェイ想定なので、そのままではグリーン上より多く出る。
+ * グリーンの硬さ（コーライ・真夏・冬は硬い）で倍率を掛ける。
+ */
+function greenRunYd(club) {
+  const base = club.green_run_yd ?? (club.run_yd || 0) * AIM.green_run_ratio;
+  const firm = CORR.green_firmness.presets.find((p) => p.id === state.greenFirm);
+  return base * (firm ? firm.factor : 1);
+}
+
+/**
  * 番手側の距離。狙いで基準が変わる。
- *   green = キャリー         … 落ちた場所が結果を決める場面（グリーンに乗せる・ハザードを越す）
- *   run   = キャリー + ラン  … 転がりを味方にする場面（フェアウェイに置く・手前から転がす）
- * ランは56°の5ydから1Wの30ydまで幅があるので、この区別は遠い番手ほど大きく効く。
+ *   carry = キャリー                  … 落ちた場所で決まる場面（ハザードを越す・砲台）
+ *   green = キャリー + グリーン上の転がり … グリーンに落として少し転がす（既定）
+ *   run   = キャリー + ラン             … フェアウェイに置く・花道から転がす
+ * スピンの少ない番手ほど転がるので、この区別は長い番手ほど大きく効く。
  */
 function basisYd(club, field) {
-  return state.aim === 'run' ? club[field] + (club.run_yd || 0) : club[field];
+  if (state.aim === 'run') return club[field] + (club.run_yd || 0);
+  if (state.aim === 'green') return club[field] + greenRunYd(club);
+  return club[field];
 }
 
 function aimMode(id) {
@@ -191,7 +207,7 @@ function carrySet(res, field) {
   lo = clamp(lo, 0, Math.max(0, asc.length - n));
   return asc.slice(lo, lo + n).reverse().map((c) => ({
     club: c,
-    yd: basisYd(c, field),
+    yd: r0(basisYd(c, field)),
     isPick: c === res.club,
   }));
 }
@@ -259,19 +275,21 @@ function renderCards() {
     }
     card.appendChild(name);
 
-    // キャリーとトータルを常に両方出す。どちらで合わせているかを太字で示す。
-    // この差はランの量そのもので、56°の5ydから1Wの30ydまで開く。
+    // キャリーと、狙いに応じた2つ目の距離（止まる位置 or トータル）を常に両方出す。
+    // どちらで合わせているかを太字で示す。縦幅を増やさないため2行に固定する。
     const carry = res.club[s.field];
-    const total = carry + (res.club.run_yd || 0);
+    const second = state.aim === 'green'
+      ? carry + greenRunYd(res.club)
+      : carry + (res.club.run_yd || 0);
     const dist = el('div', 'card-carry');
     const line = (label, yd, on) => {
       const n = el('div', 'cn' + (on ? ' is-basis' : ''));
       n.appendChild(el('span', 'cl', label));
-      n.appendChild(el('span', 'cv', `${yd}yd`));
+      n.appendChild(el('span', 'cv', `${r0(yd)}yd`));
       return n;
     };
-    dist.appendChild(line('キャリー', carry, state.aim !== 'run'));
-    dist.appendChild(line('トータル', total, state.aim === 'run'));
+    dist.appendChild(line('キャリー', carry, state.aim === 'carry'));
+    dist.appendChild(line(aimMode().line2, second, state.aim !== 'carry'));
     card.appendChild(dist);
 
     const d = el('div', 'card-delta', res.unreachable ? '届きません' : deltaText(res.delta));
@@ -317,18 +335,29 @@ function renderNotes() {
   const v = (c) => basisYd(c, F);
 
   if (game.unreachable) {
-    add('gap', `実効距離が最長番手(${game.club.name} ${v(game.club)}yd)を超えています。刻む前提でレイアップ地点を選んでください。`);
+    add('gap', `実効距離が最長番手(${game.club.name} ${r0(v(game.club))}yd)を超えています。刻む前提でレイアップ地点を選んでください。`);
   } else if (game.inGap) {
     add('gap',
-      `ギャップ帯です。${game.over.name}(${v(game.over)}yd)では` +
+      `ギャップ帯です。${game.over.name}(${r0(v(game.over))}yd)では` +
       `${r0(v(game.over) - eff)}yd余り、` +
-      `${game.under.name}(${v(game.under)}yd)では` +
+      `${game.under.name}(${r0(v(game.under))}yd)では` +
       `${r0(eff - v(game.under))}ydショートします。` +
       `どちらに外すのが安全かで選んでください。`);
   }
 
   if (state.aim === 'run') {
     add('warn', `トータル基準（ランを含む）で計算しています。${aimMode().warn}`);
+  } else if (state.aim === 'carry') {
+    add('info', aimMode().when + '。落ちてから転がる分は見ていないので、奥にこぼれないか確認してください。');
+  } else if (!game.unreachable) {
+    // 乗せる: 着地はピンの手前になる。手前のハザードに落ちないかを必ず知らせる
+    const gr = r0(greenRunYd(game.club));
+    if (gr >= 3) {
+      const est = game.club.green_run_yd == null ? '（転がる量は推定）' : '';
+      add('info',
+        `着地はピンの約${gr}yd手前、グリーン上で${gr}yd転がる想定です${est}。` +
+        `手前にバンカーや池があるなら「越える」に切り替えてください。`);
+    }
   }
 
   if (game.overridden) {
@@ -405,7 +434,7 @@ function renderLadder() {
   if (!clubs.length) return;
 
   $('ladderTitle').textContent =
-    state.aim === 'run' ? '距離ラダー（トータル）' : '距離ラダー（キャリー）';
+    `距離ラダー（${state.aim === 'carry' ? 'キャリー' : aimMode().line2}）`;
 
   const lo = v(clubs[0]) - 12;
   const hi = v(clubs[clubs.length - 1]) + 18;
@@ -429,7 +458,7 @@ function renderLadder() {
     node.style.left = pos(v(c)) + '%';
     node.appendChild(el('div', 'ladder-tick'));
     node.appendChild(el('div', 'ladder-name', c.name));
-    node.appendChild(el('div', 'ladder-yd', String(v(c))));
+    node.appendChild(el('div', 'ladder-yd', String(r0(v(c)))));
     host.appendChild(node);
   });
 
@@ -683,11 +712,19 @@ function renderCondSummary() {
   const t = CORR.temperature.presets.find((p) => p.c === state.tempC);
   parts.push(t ? t.label : `${state.tempC}℃`);
 
+  // グリーンの硬さは普通のときは省く（要約行を短く保つ）
+  const gf = CORR.green_firmness;
+  if (state.greenFirm !== gf.default) {
+    const f = gf.presets.find((p) => p.id === state.greenFirm);
+    if (f) parts.push(`グリーン${f.label}`);
+  }
+
   const node = $('condSummary');
   node.textContent = parts.join('・');
   const isDefault =
     state.elevYd === 0 && state.windDir === 'none' &&
-    state.lie === 'fairway' && state.tempC === CORR.temperature.base_c;
+    state.lie === 'fairway' && state.tempC === CORR.temperature.base_c &&
+    state.greenFirm === gf.default;
   node.dataset.on = isDefault ? '0' : '1';
 }
 
@@ -806,6 +843,10 @@ function refreshChips() {
   buildChips($('tempChips'),
     CORR.temperature.presets.map((p) => ({ label: `${p.label} ${p.c}℃`, v: p.c })),
     (i) => i.v === state.tempC, (i) => { state.tempC = i.v; });
+
+  buildChips($('firmChips'),
+    CORR.green_firmness.presets.map((p) => ({ label: p.label, v: p.id })),
+    (i) => i.v === state.greenFirm, (i) => { state.greenFirm = i.v; });
 }
 
 /* ─────────── 入力イベント ─────────── */
@@ -864,6 +905,7 @@ function bindInputs() {
   $('resetCond').addEventListener('click', () => {
     state.elevYd = 0; state.windDir = 'none'; state.windMs = CORR.wind.presets_ms.mid;
     state.lie = 'fairway'; state.tempC = CORR.temperature.base_c;
+    state.greenFirm = CORR.green_firmness.default;
     refreshChips(); renderAll();
   });
 
@@ -917,6 +959,7 @@ async function boot() {
   loadToday();
   if (!CORR.lie[state.lie]) state.lie = 'fairway';
   if (!aimMode()) state.aim = AIM.default;
+  if (!CORR.green_firmness.presets.some((p) => p.id === state.greenFirm)) state.greenFirm = CORR.green_firmness.default;
 
   const usable = DATA.clubs.filter((c) => c.recommendable).length;
   $('bagNote').textContent = `推奨対象 ${usable}本 / バッグ ${DATA.clubs.length + 1}本`;

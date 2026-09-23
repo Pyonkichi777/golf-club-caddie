@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.6",
+  "schema_version": "0.7",
   "updated": "2026-09-23",
   "note": "クラブ距離データの唯一の正。アプリはここを読む。手で編集してよいが、必ずコミットすること。",
 
@@ -28,20 +28,31 @@
   },
 
   "aim_modes": {
-    "note": "キャリーとトータルのどちらで合わせるかは『着弾点そのものが目標か、手前に落として転がすか』で決まる。ランは短い番手ほど小さく(56°は5yd)、長い番手ほど大きい(1Wは30yd)ので、この区別が効くのは遠い場面ほど",
+    "note": "番手側の距離をどこで測るかは狙いで決まる。着地点そのものが目標なら carry、グリーンに落として少し転がすなら carry + グリーン上のラン、手前から転がすなら carry + run。ランは短い番手ほど小さい(56°は5yd)、長い番手ほど大きい(1Wは30yd)",
     "default": "green",
+    "green_run_ratio": 0.5,
+    "green_run_note": "グリーン上の転がりは実測がないため、計測器のラン(run_yd。平らなフェアウェイ想定)の半分を仮の値にしている。実際のラウンドで見た転がりを番手ごとの green_run_yd に入れれば、そちらが優先される",
     "modes": [
       {
-        "id": "green",
-        "label": "グリーンに乗せる",
+        "id": "carry",
+        "label": "越える",
         "basis": "carry",
-        "when": "グリーンに直接乗せる／手前のバンカー・池を越す。落ちた場所が結果を決める場面"
+        "line2": "トータル",
+        "when": "キャリーだけで合わせています。手前のバンカー・池を越す、砲台グリーン、奥に転がると危ない場面向け"
+      },
+      {
+        "id": "green",
+        "label": "乗せる",
+        "basis": "carry_plus_green_run",
+        "line2": "止まる位置",
+        "when": "グリーンに落として少し転がす前提。着地はピンの手前になる"
       },
       {
         "id": "run",
-        "label": "手前から転がす",
+        "label": "転がす",
         "basis": "carry_plus_run",
-        "when": "フェアウェイに置く／刻む／グリーン手前から転がし上げる。転がりを味方にする場面",
+        "line2": "トータル",
+        "when": "フェアウェイに置く／刻む／花道から転がし上げる場面向け",
         "warn": "グリーン手前にバンカーや池があるときは使わない。キャリーで越えられるかが先"
       }
     ]
@@ -98,6 +109,15 @@
       ],
       "comment": "影響は入力誤差と同程度。3択で十分"
     },
+    "green_firmness": {
+      "comment": "グリーン上の転がりに掛ける倍率。コーライ芝・真夏・冬は硬く、よく転がる。雨の後は柔らかい",
+      "default": "normal",
+      "presets": [
+        { "id": "soft",   "label": "柔らかい", "factor": 0.6 },
+        { "id": "normal", "label": "普通",     "factor": 1.0 },
+        { "id": "firm",   "label": "硬い",     "factor": 1.5 }
+      ]
+    },
     "layup_margin_yd": 10,
     "near_threshold_yd": 5,
     "gap_threshold_yd": 15
@@ -128,6 +148,7 @@
       "carry_game_yd": 175,
       "carry_best_yd": 189,
       "run_yd": 30,
+      "green_run_yd": null,
       "shots_measured": 2,
       "confidence": "measured",
       "source": "2026-07 練習場計測(キャリー189.20/トータル209.86/初速55.8m\/s/打出15.4°/スピン1885rpm)、2026-08 計測(キャリー173/トータル193/初速53.0m\/s/打出16.4°/スピン1960rpm)。自分のクラブ",
@@ -146,6 +167,7 @@
       "carry_game_yd": 150,
       "carry_best_yd": 165,
       "run_yd": 15,
+      "green_run_yd": null,
       "shots_measured": 0,
       "confidence": "estimated",
       "source": "レッスン実感『よく当たると約160yard』。キャリーかトータルか不明。計測はレンタルRシャフト、所有はSR。最優先で要実測",
@@ -164,6 +186,7 @@
       "carry_game_yd": null,
       "carry_best_yd": null,
       "run_yd": null,
+      "green_run_yd": null,
       "shots_measured": 0,
       "confidence": "unusable",
       "source": "バッグには入っているが実戦では打てない(2026-09-19 確認)。距離データは持たない",
@@ -182,6 +205,7 @@
       "carry_game_yd": 132,
       "carry_best_yd": 145,
       "run_yd": 14,
+      "green_run_yd": null,
       "shots_measured": 0,
       "confidence": "estimated",
       "source": "7Iからの内挿推定。スピン実測あり(3759〜3917rpm)だが距離データは未回収",
@@ -200,6 +224,7 @@
       "carry_game_yd": 122,
       "carry_best_yd": 130,
       "run_yd": 15,
+      "green_run_yd": null,
       "shots_measured": 2,
       "confidence": "measured",
       "source": "実測2球(キャリー130.0/トータル145.3/初速43.6m\/s/打出20.9°/スピン3218rpm、キャリー127.5/トータル141.95/初速42.9m\/s/打出22.6°/スピン3395rpm)。自分のクラブ。全番手の基準値",
@@ -218,6 +243,7 @@
       "carry_game_yd": 110,
       "carry_best_yd": 120,
       "run_yd": 12,
+      "green_run_yd": null,
       "shots_measured": 0,
       "confidence": "estimated",
       "source": "7Iからの内挿推定。実測データなし",
@@ -236,6 +262,7 @@
       "carry_game_yd": 100,
       "carry_best_yd": 110,
       "run_yd": 10,
+      "green_run_yd": null,
       "shots_measured": 0,
       "confidence": "estimated",
       "source": "7Iからの内挿推定。スピン実測あり(5199〜5613rpm)だが距離データは未回収",
@@ -254,6 +281,7 @@
       "carry_game_yd": 90,
       "carry_best_yd": 100,
       "run_yd": 8,
+      "green_run_yd": null,
       "shots_measured": 0,
       "confidence": "estimated",
       "source": "7Iからの内挿推定。実測データなし",
@@ -272,6 +300,7 @@
       "carry_game_yd": 70,
       "carry_best_yd": 80,
       "run_yd": 5,
+      "green_run_yd": null,
       "shots_measured": 0,
       "confidence": "estimated",
       "source": "実測なし。スペックは実物で確認済み",

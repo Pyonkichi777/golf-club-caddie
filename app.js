@@ -24,8 +24,6 @@ const state = {
   greenFirm: 'normal',
   aim: 'green',   // carry = 越える ／ green = 乗せる(キャリー+グリーン上の転がり) ／ run = 転がす(キャリー+ラン)
   screen: 'pick',
-  hole: null,      // 取り込んだコースの、いまのホール番号
-  greenId: null,   // 2グリーンのどちらか（コースデータの greens[].id）
 };
 
 /* ─────────── 小物 ─────────── */
@@ -85,9 +83,9 @@ function greenRunYd(club) {
  *   run   = キャリー + ラン             … フェアウェイに置く・花道から転がす
  * スピンの少ない番手ほど転がるので、この区別は長い番手ほど大きく効く。
  */
-function basisYd(club, field, aim = state.aim) {
-  if (aim === 'run') return club[field] + (club.run_yd || 0);
-  if (aim === 'green') return club[field] + greenRunYd(club);
+function basisYd(club, field) {
+  if (state.aim === 'run') return club[field] + (club.run_yd || 0);
+  if (state.aim === 'green') return club[field] + greenRunYd(club);
   return club[field];
 }
 
@@ -183,12 +181,12 @@ function skillHint(c) {
  * 152yd に対して 1W(175) のような非現実的な答えが出るため、
  * 上下の番手を見て近いほうを推奨し、差を必ず明示する。
  */
-function pickByDistance(field, at, aim = state.aim) {
-  const eff = at ?? effective(toYd(state.dist));
-  const v = (c) => basisYd(c, field, aim);
-  const asc = usableClubs(field).sort((a, b) => v(a) - v(b));
+function pickByDistance(field) {
+  const eff = effective(toYd(state.dist));
+  const asc = usableClubs(field).sort((a, b) => basisYd(a, field) - basisYd(b, field));
   if (!asc.length) return null;
 
+  const v = (c) => basisYd(c, field);
   const over = asc.find((c) => v(c) >= eff);
   const under = [...asc].reverse().find((c) => v(c) < eff);
   const NEAR = CORR.near_threshold_yd;
@@ -217,14 +215,14 @@ function pickByDistance(field, at, aim = state.aim) {
  * 得意だからといって11yd足りないクラブを勧めると、手前のハザードに捕まるため。
  * 同点なら距離だけで選んだ番手を残す。
  */
-function pick(field, at, aim = state.aim) {
-  const pure = pickByDistance(field, at, aim);
+function pick(field) {
+  const pure = pickByDistance(field);
   if (!pure) return null;
   const base = { ...pure, pure: pure.club, pureDelta: pure.delta, overridden: false };
   if (pure.unreachable) return base;
 
-  const eff = at ?? effective(toYd(state.dist));
-  const v = (c) => basisYd(c, field, aim);
+  const eff = effective(toYd(state.dist));
+  const v = (c) => basisYd(c, field);
   const score = (c) => Math.abs(v(c) - eff) + skillAdjust(c);
   const MAX = DATA.skill_rules.max_override_yd;
 
@@ -429,8 +427,6 @@ function renderNotes() {
     }).filter(Boolean);
     add('info', `今日の調子を反映中：${names.join('・')}（日付が変わると元に戻ります）`);
   }
-
-  holeNotes(add);
 
   if (game.club.warn) add('warn', `${game.club.name}：${game.club.warn}`);
 
@@ -759,306 +755,6 @@ function nextShotFor(restYd) {
   return { club, delta: club.carry_game_yd - restYd, inGap: dOver > NEAR && dUnder > NEAR };
 }
 
-/* ─────────── コース（取り込み式） ─────────── */
-/* コース名やホール情報は公開リポジトリに置かない。利用者が自分のデータを取り込み、
-   端末にだけ保存する。ここにあるのは読み方と作戦の立て方だけ。 */
-
-const COURSE_KEY = 'caddie.course.v1';
-let COURSE = null;
-
-/** 取り込むデータの形を確かめる。だめなら、どこを直せばよいかを日本語で返す */
-function validateCourse(c) {
-  if (!c || typeof c !== 'object') return 'JSONの形になっていません。';
-  if (c.schema !== 'caddie-course-v1') return '"schema": "caddie-course-v1" がありません。コースデータのファイルか確認してください。';
-  if (!c.name) return 'コース名（name）がありません。';
-  if (!Array.isArray(c.greens) || !c.greens.length) return 'グリーンの種類（greens）がありません。';
-  if (!Array.isArray(c.holes) || !c.holes.length) return 'ホール（holes）が1つもありません。';
-  for (const h of c.holes) {
-    if (!Number.isInteger(h.no) || !h.par) return `ホールの番号（no）かパー（par）が抜けています。`;
-    for (const g of c.greens) {
-      if (typeof h.yd?.[g.id] !== 'number') return `${h.no}番の${g.label}グリーンの距離（yd.${g.id}）がありません。`;
-    }
-  }
-  return null;
-}
-
-function loadCourse() {
-  try {
-    const raw = localStorage.getItem(COURSE_KEY);
-    const c = raw ? JSON.parse(raw) : null;
-    COURSE = c && !validateCourse(c) ? c : null;
-  } catch (_) { COURSE = null; }
-  if (!COURSE) state.hole = null;
-  if (COURSE && !COURSE.greens.some((g) => g.id === state.greenId)) state.greenId = COURSE.greens[0].id;
-}
-
-function importCourse(text) {
-  let c;
-  try { c = JSON.parse(text); } catch (_) { return '読み込めませんでした。JSONの全文をそのまま貼り付けてください（途中で切れていないか確認）。'; }
-  const err = validateCourse(c);
-  if (err) return err;
-  try { localStorage.setItem(COURSE_KEY, JSON.stringify(c)); } catch (_) { return 'この端末に保存できませんでした（プライベートモードでは保存できません）。'; }
-  loadCourse();
-  state.hole = COURSE.holes[0].no;
-  return null;
-}
-
-const holeOf = (no) => COURSE?.holes.find((h) => h.no === no) || null;
-const greenLabel = (id) => COURSE?.greens.find((g) => g.id === id)?.label ?? '';
-
-/** 番手が曲がりやすい側。明示がなければ計測の主なミスから読む */
-function missSide(c) {
-  if (c.miss_side) return c.miss_side;
-  const m = c.stability ? mainMiss(c.stability) : null;
-  if (!m) return null;
-  if (m.includes('右') && !m.includes('左')) return 'right';
-  if (m.includes('左') && !m.includes('右')) return 'left';
-  return null;
-}
-const sideJa = { left: '左', right: '右', back: '奥', front: '手前', cross: '横切る' };
-
-const totalYd = (c) => c.carry_game_yd + (c.run_yd || 0);
-
-/**
- * 残り距離から、グリーンを狙うショットの評価（小さいほど良い）。
- * 番手の距離とのズレ＋得意/苦手に加えて、残りが長いほど少し不利にする。
- * 同じ「ちょうど」でも130ydの7Iより60ydの56°のほうが寄るため。
- */
-function approachAt(rest, aim) {
-  const res = pick('carry_game_yd', rest, aim);
-  const P = DATA.course_plan;
-  return { res, score: Math.abs(res.delta) + skillAdjust(res.club) + rest * P.approach_length_weight };
-}
-
-/** グリーンを狙える残り距離の上限（フェアウェイから打てる最長番手＋近さの許容） */
-function reachYd(aim) {
-  const fw = usableClubs('carry_game_yd').filter((c) => !c.tee_club);
-  return Math.max(...fw.map((c) => basisYd(c, 'carry_game_yd', aim))) + CORR.near_threshold_yd;
-}
-
-/**
- * 残り rest からグリーンに乗せるまでの打ち方。
- * 届かないうちは刻み、刻みは「次がいちばん打ちやすい距離が残る」番手を選ぶ。
- */
-function routeFrom(rest, aim) {
-  const P = DATA.course_plan;
-  const shots = [];
-  const fw = usableClubs('carry_game_yd').filter((c) => !c.tee_club);
-  for (let i = 0; i < P.max_layups && rest > reachYd(aim); i++) {
-    const opts = fw
-      .filter((c) => rest - totalYd(c) >= P.layup_min_rest_yd)
-      .map((c) => {
-        const left = rest - totalYd(c);
-        // まだ届かないなら、とにかく前へ（評価は残り距離そのもの）
-        const score = left > reachYd(aim) ? left : approachAt(left, aim).score + skillAdjust(c);
-        return { c, left, score };
-      })
-      .sort((a, b) => a.score - b.score || b.left - a.left);
-    if (!opts.length) break;
-    shots.push({ kind: 'layup', club: opts[0].c, yd: totalYd(opts[0].c), rest: opts[0].left });
-    rest = opts[0].left;
-  }
-  const ap = approachAt(rest, aim);
-  shots.push({ kind: 'approach', club: ap.res.club, rest, delta: ap.res.delta, score: ap.score });
-  return shots;
-}
-
-/** ティーショットの番手ごとに作戦を立て、良い順に並べる */
-function holePlans(hole, greenId) {
-  const P = DATA.course_plan;
-  const len = hole.yd[greenId];
-  const aim = hole.elevated_green ? 'carry' : 'green';
-  const M = CORR.layup_margin_yd;
-  const hz = hole.hazards || [];
-
-  const tees = usableClubs('carry_game_yd').filter((c) => P.tee_categories.includes(c.category));
-  const plans = [];
-  for (const c of tees) {
-    const land = totalYd(c);
-    if (land >= len - P.layup_min_rest_yd) continue;   // パー3はこの作戦表の対象外
-    // 横切るハザード: 実戦基準で越えられず、好球時に届いてしまう番手は使わない
-    const blocked = hz.some((h) => h.side === 'cross' &&
-      c.carry_game_yd < h.to + M && c.carry_best_yd + (c.run_yd || 0) > h.from - M);
-    if (blocked) continue;
-
-    const ms = missSide(c);
-    const obOnMiss = hz.find((h) => h.type === 'ob' && h.side === ms && h.from <= land && land <= h.to);
-    const risk = obOnMiss ? (obOnMiss.close_to && land <= obOnMiss.close_to ? 2 : 1) : 0;
-    const route = routeFrom(len - land, aim);
-    plans.push({
-      tee: c, land, risk, ms, obOnMiss, route, aim,
-      strokes: 1 + route.length,
-      score: route[route.length - 1].score,
-    });
-  }
-  // ①乗るまでの打数 ②ミスの出る側のOB ③ティーショットの距離（前に出るほど後が楽）④残る距離の打ちやすさ
-  // 苦手な1Wでも、ミスの出る側にOBがなければ使う。ミス側にOBがあるときだけ②で外れる
-  return plans.sort((a, b) =>
-    a.strokes - b.strokes || a.risk - b.risk || b.land - a.land || a.score - b.score);
-}
-
-function teeAimText(plan, hole) {
-  const ob = (hole.hazards || []).filter((h) => h.type === 'ob' && (h.side === 'left' || h.side === 'right'));
-  const sides = [...new Set(ob.map((h) => h.side))];
-  if (sides.length === 1) {
-    const safe = sides[0] === 'left' ? '右' : '左';
-    const why = plan.ms && plan.ms !== sides[0]
-      ? `${plan.tee.name}のミスは${sideJa[plan.ms]}に出やすく、OBと反対側なので相性は悪くない`
-      : plan.ms === sides[0]
-        ? `${plan.tee.name}のミスはOB側の${sideJa[plan.ms]}に出やすい。いつもより${safe}を向く`
-        : `${sideJa[sides[0]]}はOB`;
-    return `フェアウェイの${safe}半分。${why}`;
-  }
-  if (sides.length === 2) return 'フェアウェイの真ん中。両側がOBなので、曲がり幅の小さい番手を優先';
-  return 'フェアウェイの広い側';
-}
-
-function renderCourse() {
-  const imp = $('courseImport');
-  const view = $('courseView');
-  imp.hidden = !!COURSE;
-  view.hidden = !COURSE;
-  if (!COURSE) return;
-
-  $('courseName').textContent = COURSE.name;
-  $('courseTee').textContent = `${COURSE.tee ?? ''}ティー`;
-
-  const gHost = $('greenChips');
-  gHost.textContent = '';
-  for (const g of COURSE.greens) {
-    const b = el('button', 'chip' + (state.greenId === g.id ? ' is-on' : ''), g.label);
-    b.type = 'button';
-    b.addEventListener('click', () => { state.greenId = g.id; renderAll(); });
-    gHost.appendChild(b);
-  }
-
-  const hHost = $('holeChips');
-  hHost.textContent = '';
-  for (let no = 1; no <= 18; no++) {
-    const has = !!holeOf(no);
-    const b = el('button', 'chip hole-chip' + (state.hole === no ? ' is-on' : ''), String(no));
-    b.type = 'button';
-    b.disabled = !has;
-    if (has) b.addEventListener('click', () => { state.hole = no; renderAll(); });
-    hHost.appendChild(b);
-  }
-
-  const out = $('holeOut');
-  out.textContent = '';
-  const hole = holeOf(state.hole);
-  if (!hole) {
-    out.appendChild(el('p', 'layup-empty', 'ホールを選んでください。'));
-    return;
-  }
-  const len = hole.yd[state.greenId];
-
-  const head = el('div', 'hole-head');
-  head.appendChild(el('div', 'hole-no', `${hole.no}`));
-  const meta = el('div', 'hole-meta');
-  meta.appendChild(el('div', 'hole-par', `Par ${hole.par}`));
-  meta.appendChild(el('div', 'hole-yd', `${len}yd（${greenLabel(state.greenId)}）`));
-  head.appendChild(meta);
-  out.appendChild(head);
-
-  // 作戦
-  const plans = hole.par >= 4 ? holePlans(hole, state.greenId) : [];
-  if (plans.length) {
-    const best = plans[0];
-    const box = el('div', 'plan');
-    box.appendChild(el('div', 'plan-title', '作戦'));
-    const step = (n, club, text, sub) => {
-      const r = el('div', 'plan-step');
-      r.appendChild(el('div', 'plan-n', n));
-      r.appendChild(el('div', 'plan-club', club));
-      const t = el('div', 'plan-text', text);
-      if (sub) t.appendChild(el('div', 'plan-sub', sub));
-      r.appendChild(t);
-      box.appendChild(r);
-    };
-    step('1打目', best.tee.name, `約${r0(best.land)}yd（キャリー${best.tee.carry_game_yd}）`, teeAimText(best, hole));
-    best.route.forEach((s, i) => {
-      const n = `${i + 2}打目`;
-      if (s.kind === 'layup') {
-        step(n, s.club.name, `約${r0(s.yd)}yd刻む → 残り${r0(s.rest)}yd`,
-          s.club.skill === 'good' ? `得意な${s.club.name}で、次が打ちやすい距離を残す` : '次が打ちやすい距離を残す');
-      } else {
-        const sub = hole.elevated_green ? '砲台グリーン。キャリーで乗せる（狙いは「越える」）' : null;
-        step(n, s.club.name, `残り${r0(s.rest)}yd（${deltaText(s.delta)}）`, sub);
-      }
-    });
-    // パーオン＝パー−2打で乗る。1打遅れるごとに2パットで1つずつ増える
-    const onIn = best.strokes;
-    const over = onIn - (hole.par - 2);
-    const target = over <= 0 ? 'パー' : over === 1 ? 'ボギー' : `${over}オーバー`;
-    box.appendChild(el('div', 'plan-goal',
-      `目標：${target}（${onIn}オン2パット）${over > 0 ? '　無理に届かせない' : ''}`));
-
-    const last = best.route[best.route.length - 1];
-    const go2 = el('button', 'reset-btn plan-go', `${onIn}打目（残り${r0(last.rest)}yd）を推奨画面で見る`);
-    go2.type = 'button';
-    go2.addEventListener('click', () => {
-      state.unit = 'yd';
-      state.dist = r0(last.rest);
-      state.aim = best.aim;
-      refreshChips();
-      go('pick');
-      renderAll();
-    });
-    box.appendChild(go2);
-
-    // ティーの番手が不調な日の代案。得意な番手で始める作戦があればそれを出す
-    const others = plans.filter((p) => p.tee !== best.tee);
-    const alt = others.find((p) => skillOf(p.tee) === 'good') || others[0];
-    if (alt) {
-      const seq = [alt.tee, ...alt.route.map((s) => s.club)].map((c) => c.name).join(' → ');
-      box.appendChild(el('div', 'plan-alt',
-        `${best.tee.name}が不調な日：${seq}（${alt.strokes}打目でグリーン、最後は残り${r0(alt.route[alt.route.length - 1].rest)}yd）`));
-    }
-    out.appendChild(box);
-  }
-
-  // ホールの特徴
-  const feat = el('div', 'hole-feats');
-  for (const h of hole.hazards || []) {
-    const f = el('div', 'hole-feat', h.text);
-    f.dataset.type = h.type;
-    feat.appendChild(f);
-  }
-  const gn = hole.green_notes?.[state.greenId];
-  if (gn) {
-    const f = el('div', 'hole-feat', gn);
-    f.dataset.type = 'green';
-    feat.appendChild(f);
-  }
-  out.appendChild(feat);
-
-  if (hole.memo) out.appendChild(el('p', 'hole-memo', hole.memo));
-  if (hole.unverified) out.appendChild(el('p', 'hole-unv', `未確認：${hole.unverified}`));
-  if (COURSE.source) out.appendChild(el('p', 'hole-unv', `出どころ：${COURSE.source}`));
-}
-
-/** 推奨画面の上に、いまのホールを細く出す。グリーンを狙う注意もここから足す */
-function renderHoleStrip() {
-  const strip = $('holeStrip');
-  const hole = holeOf(state.hole);
-  strip.hidden = !hole;
-  if (!hole) return;
-  strip.querySelector('.hs-text').textContent =
-    `${hole.no}番 Par${hole.par} ${hole.yd[state.greenId]}yd（${greenLabel(state.greenId)}）`;
-}
-
-function holeNotes(add) {
-  const hole = holeOf(state.hole);
-  if (!hole) return;
-  const back = (hole.hazards || []).find((h) => h.side === 'back' && h.type === 'ob');
-  if (back) add('warn', `${hole.no}番：グリーン奥はOB。迷ったら短いほうの番手を選ぶ。`);
-  const gn = hole.green_notes?.[state.greenId];
-  if (gn) add('info', `${hole.no}番：${gn}。`);
-  if (hole.elevated_green && state.aim !== 'carry') {
-    add('info', `${hole.no}番は砲台グリーン。手前から転がり上がりにくいので「越える」（キャリー）で合わせるのが基本です。`);
-  }
-}
-
 /* ─────────── 描画: 全体 ─────────── */
 
 /** 条件パネルを畳んでいても、いま何が効いているかが一目で分かるようにする */
@@ -1216,8 +912,6 @@ function renderAll() {
   renderTrends();
   renderTable();
   renderLayup();
-  renderCourse();
-  renderHoleStrip();
   save();
 }
 
@@ -1293,29 +987,6 @@ function refreshChips() {
 /* ─────────── 入力イベント ─────────── */
 
 function bindInputs() {
-  const err = $('courseErr');
-  const doImport = (text) => {
-    const msg = importCourse(text);
-    err.hidden = !msg;
-    err.textContent = msg || '';
-    if (!msg) { $('courseText').value = ''; renderAll(); }
-  };
-  $('courseImportBtn').addEventListener('click', () => doImport($('courseText').value));
-  $('courseFile').addEventListener('change', (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    f.text().then(doImport).catch(() => { err.hidden = false; err.textContent = 'ファイルを読めませんでした。'; });
-  });
-  $('courseClear').addEventListener('click', () => {
-    if (!confirm('取り込んだコースをこの端末から消します。よろしいですか？')) return;
-    try { localStorage.removeItem(COURSE_KEY); } catch (_) { /* 無視 */ }
-    COURSE = null;
-    state.hole = null;
-    renderAll();
-  });
-  $('holeStripOpen').addEventListener('click', () => go('course'));
-  $('holeStripClear').addEventListener('click', () => { state.hole = null; renderAll(); });
-
   document.querySelectorAll('.unit-btn').forEach((b) => {
     b.addEventListener('click', () => {
       const u = b.dataset.unit;
@@ -1421,7 +1092,6 @@ async function boot() {
   state.aim = AIM.default || 'green';
   load();
   loadToday();
-  loadCourse();
   if (!CORR.lie[state.lie]) state.lie = 'fairway';
   if (!aimMode()) state.aim = AIM.default;
   if (!CORR.green_firmness.presets.some((p) => p.id === state.greenFirm)) state.greenFirm = CORR.green_firmness.default;

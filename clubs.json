@@ -2,12 +2,10 @@
   "schema_version": "0.7",
   "updated": "2026-10-17",
   "note": "クラブ距離データの唯一の正。アプリはここを読む。手で編集してよいが、必ずコミットすること。",
-
   "privacy": {
     "note": "このファイルは公開リポジトリに置く。氏名・コース名・ラウンド日・位置情報は書かないこと。計測の出どころは『2026-07 練習場計測』程度の粒度に留める。ショットログの生データ(日付・コース名を含む)は非公開リポジトリ側に置く。",
     "checked": "2026-09-19"
   },
-
   "formula": {
     "note": "符号の定義。ここを間違えると番手が逆に出るので必ず読むこと",
     "steps": [
@@ -19,14 +17,12 @@
       "比較する番手側の距離は狙い(aim_modes)で決まる。green なら carry_*_yd、run なら carry_*_yd + run_yd"
     ]
   },
-
   "unit": {
     "internal": "yd",
     "input_default": "yd",
     "yd_per_m": 1.0936,
     "note": "距離計を持っていないため、残り距離はカートナビ・ヤーデージ杭から読む。杭はヤードが基本だが、コースによってはメートル表記や乗用カートのナビがメートルのこともある。どちらでも即切り替えられるよう、単位は常時表示しトグルを距離のすぐ横に置く"
   },
-
   "aim_modes": {
     "note": "番手側の距離をどこで測るかは狙いで決まる。着地点そのものが目標なら carry、グリーンに落として少し転がすなら carry + グリーン上のラン、手前から転がすなら carry + run。ランは短い番手ほど小さい(56°は5yd)、長い番手ほど大きい(1Wは30yd)",
     "default": "green",
@@ -57,55 +53,103 @@
       }
     ]
   },
-
   "skill_rules": {
     "note": "得意/苦手を推奨に効かせるルール。評価＝距離のズレ(yd)＋苦手ペナルティ−得意ボーナス。評価が最小の番手を推奨する。ただし距離だけで選んだ番手以外に乗り換えられるのは、ズレが max_override_yd 以内の番手だけ。距離だけで選んだ番手は常にカードに併記する",
     "good_bonus_yd": 5,
     "weak_penalty_yd": 5,
     "max_override_yd": 10,
-    "labels": { "good": "得意", "normal": "普通", "weak": "苦手" },
+    "labels": {
+      "good": "得意",
+      "normal": "普通",
+      "weak": "苦手"
+    },
     "base_set": "本人確認済み。得意＝6I・7I（前回ラウンドで安定）、苦手＝1W（同ラウンドの課題）・5UT。当日の調子はアプリで一時的に上書きでき、日付が変わると元に戻る"
   },
-
   "carry_set": {
     "count": 3,
     "note": "ボールまで歩くときに持っていく本数。推奨を中心に上下1番手ずつ。外してもカートへ戻らずに済むようにする"
   },
-
   "input_precision": {
     "estimated_error_yd": 7,
     "note": "距離計なしの目測・杭読みのため入力値の誤差は±5〜10yd。これより細かい補正は意味を持たないので、補正入力はすべてボタン選択の粗い粒度にする"
   },
-
   "corrections": {
     "elevation": {
       "uphill_factor": 1.0,
       "downhill_factor": 0.8,
-      "presets_yd": { "slight": 5, "mid": 10, "large": 20 },
+      "presets_yd": {
+        "slight": 5,
+        "mid": 10,
+        "large": 20
+      },
       "comment": "打ち下ろしは落下角が立つぶん効きが弱い。距離計がないため目測の3段階ボタンを既定とする"
     },
     "wind": {
       "head_loss_pct_per_ms": 2.5,
       "tail_gain_pct_per_ms": 1.2,
-      "presets_ms": { "weak": 2, "mid": 4, "strong": 7 },
+      "presets_ms": {
+        "weak": 2,
+        "mid": 4,
+        "strong": 7
+      },
       "comment": "追い風は向かい風の約半分しか効かない。横風は距離補正せず方向の警告のみ"
     },
     "lie": {
-      "fairway":      { "label": "フェアウェイ", "carry_loss_pct": 0,  "warn": null },
-      "rough":        { "label": "ラフ",         "carry_loss_pct": 8,  "warn": "フライヤーで飛ぶ場合もある。距離より確実性を優先" },
-      "toe_up":       { "label": "つま先上がり", "carry_loss_pct": 5,  "warn": "左へ出やすい" },
-      "toe_down":     { "label": "つま先下がり", "carry_loss_pct": 5,  "warn": "右へ出やすい" },
-      "uphill_lie":   { "label": "左足上がり",   "carry_loss_pct": 5,  "warn": "高弾道になる" },
-      "downhill_lie": { "label": "左足下がり",   "carry_loss_pct": 0,  "warn": "低弾道・ランが増える" },
-      "bunker":       { "label": "バンカー",     "carry_loss_pct": 15, "warn": "距離より脱出を優先" }
+      "fairway": {
+        "label": "フェアウェイ",
+        "carry_loss_pct": 0,
+        "warn": null
+      },
+      "rough": {
+        "label": "ラフ",
+        "carry_loss_pct": 8,
+        "warn": "フライヤーで飛ぶ場合もある。距離より確実性を優先"
+      },
+      "toe_up": {
+        "label": "つま先上がり",
+        "carry_loss_pct": 5,
+        "warn": "左へ出やすい"
+      },
+      "toe_down": {
+        "label": "つま先下がり",
+        "carry_loss_pct": 5,
+        "warn": "右へ出やすい"
+      },
+      "uphill_lie": {
+        "label": "左足上がり",
+        "carry_loss_pct": 5,
+        "warn": "高弾道になる"
+      },
+      "downhill_lie": {
+        "label": "左足下がり",
+        "carry_loss_pct": 0,
+        "warn": "低弾道・ランが増える"
+      },
+      "bunker": {
+        "label": "バンカー",
+        "carry_loss_pct": 15,
+        "warn": "距離より脱出を優先"
+      }
     },
     "temperature": {
       "base_c": 20,
       "loss_pct_per_10c_below_base": 2,
       "presets": [
-        { "id": "summer", "label": "夏",   "c": 30 },
-        { "id": "normal", "label": "春秋", "c": 20 },
-        { "id": "winter", "label": "冬",   "c": 8 }
+        {
+          "id": "summer",
+          "label": "夏",
+          "c": 30
+        },
+        {
+          "id": "normal",
+          "label": "春秋",
+          "c": 20
+        },
+        {
+          "id": "winter",
+          "label": "冬",
+          "c": 8
+        }
       ],
       "comment": "影響は入力誤差と同程度。3択で十分"
     },
@@ -113,16 +157,27 @@
       "comment": "グリーン上の転がりに掛ける倍率。コーライ芝・真夏・冬は硬く、よく転がる。雨の後は柔らかい",
       "default": "normal",
       "presets": [
-        { "id": "soft",   "label": "柔らかい", "factor": 0.6 },
-        { "id": "normal", "label": "普通",     "factor": 1.0 },
-        { "id": "firm",   "label": "硬い",     "factor": 1.5 }
+        {
+          "id": "soft",
+          "label": "柔らかい",
+          "factor": 0.6
+        },
+        {
+          "id": "normal",
+          "label": "普通",
+          "factor": 1.0
+        },
+        {
+          "id": "firm",
+          "label": "硬い",
+          "factor": 1.5
+        }
       ]
     },
     "layup_margin_yd": 10,
     "near_threshold_yd": 5,
     "gap_threshold_yd": 15
   },
-
   "update_rule": {
     "note": "距離計がないため実測キャリーを記録できない。ショート/オーバーの偏りから基準値を推定する(Phase 2で実装)",
     "window": 10,
@@ -130,9 +185,11 @@
     "over_rate_threshold": 0.6,
     "step_yd": 5,
     "auto_apply": false,
-    "confidence_thresholds": { "two_star": 10, "three_star": 30 }
+    "confidence_thresholds": {
+      "two_star": 10,
+      "three_star": 30
+    }
   },
-
   "clubs": [
     {
       "id": "1w",
@@ -151,7 +208,7 @@
       "green_run_yd": null,
       "shots_measured": 2,
       "confidence": "measured",
-      "source": "2026-07 練習場計測(キャリー189.20/トータル209.86/初速55.8m\/s/打出15.4°/スピン1885rpm)、2026-08 計測(キャリー173/トータル193/初速53.0m\/s/打出16.4°/スピン1960rpm)。自分のクラブ",
+      "source": "2026-07 練習場計測(キャリー189.20/トータル209.86/初速55.8m/s/打出15.4°/スピン1885rpm)、2026-08 計測(キャリー173/トータル193/初速53.0m/s/打出16.4°/スピン1960rpm)。自分のクラブ",
       "warn": "右に出やすい。前回ラウンドの課題番手"
     },
     {
@@ -196,96 +253,96 @@
       "id": "6i",
       "name": "6I",
       "full_name": "6番アイアン",
-      "model": "スリクソン ZR-600",
-      "shaft": null,
-      "loft_deg": null,
+      "model": "PING G440",
+      "shaft": "ALTA J CB BLUE / SR",
+      "loft_deg": 25.5,
       "in_bag": true,
       "recommendable": true,
       "skill": "good",
       "carry_game_yd": 132,
-      "carry_best_yd": 145,
-      "run_yd": 14,
+      "carry_best_yd": 135,
+      "run_yd": 25,
       "green_run_yd": null,
       "shots_measured": 0,
       "confidence": "estimated",
-      "source": "7Iからの内挿推定。スピン実測あり(3759〜3917rpm)だが距離データは未回収",
-      "warn": "アタックアングルが+0.4°でアッパー気味。トップ注意"
+      "source": "G440 SR 7Iの試打値からロフト差で内挿した推定値。実測待ち",
+      "warn": null
     },
     {
       "id": "7i",
       "name": "7I",
       "full_name": "7番アイアン",
-      "model": "スリクソン ZR-600",
-      "shaft": null,
-      "loft_deg": null,
+      "model": "PING G440",
+      "shaft": "ALTA J CB BLUE / SR",
+      "loft_deg": 29.0,
       "in_bag": true,
       "recommendable": true,
       "skill": "good",
       "carry_game_yd": 122,
-      "carry_best_yd": 130,
-      "run_yd": 15,
+      "carry_best_yd": 125,
+      "run_yd": 25,
       "green_run_yd": null,
-      "shots_measured": 2,
+      "shots_measured": 10,
       "confidence": "measured",
-      "source": "実測2球(キャリー130.0/トータル145.3/初速43.6m\/s/打出20.9°/スピン3218rpm、キャリー127.5/トータル141.95/初速42.9m\/s/打出22.6°/スピン3395rpm)。自分のクラブ。全番手の基準値",
-      "warn": null
+      "source": "2026-09 トラックマン試打10球(購入品と同スペックのG440 SR 7I)。キャリー平均121.6・芯を食った8球のキャリー平均125.1・トータル平均146.8。全10球が左曲がり(平均12yd)",
+      "warn": "左に曲がりやすい(試打10球すべて左・平均12yd)"
     },
     {
       "id": "8i",
       "name": "8I",
       "full_name": "8番アイアン",
-      "model": "スリクソン ZR-600",
-      "shaft": null,
+      "model": "PING G440",
+      "shaft": "ALTA J CB BLUE / SR",
       "loft_deg": null,
       "in_bag": true,
       "recommendable": true,
       "skill": "normal",
-      "carry_game_yd": 110,
-      "carry_best_yd": 120,
-      "run_yd": 12,
+      "carry_game_yd": 112,
+      "carry_best_yd": 115,
+      "run_yd": 20,
       "green_run_yd": null,
       "shots_measured": 0,
       "confidence": "estimated",
-      "source": "7Iからの内挿推定。実測データなし",
+      "source": "G440 SR 7Iの試打値からロフト差で内挿した推定値。実測待ち",
       "warn": null
     },
     {
       "id": "9i",
       "name": "9I",
       "full_name": "9番アイアン",
-      "model": "スリクソン ZR-600",
-      "shaft": null,
+      "model": "PING G440",
+      "shaft": "ALTA J CB BLUE / SR",
       "loft_deg": null,
       "in_bag": true,
       "recommendable": true,
       "skill": "normal",
-      "carry_game_yd": 100,
-      "carry_best_yd": 110,
-      "run_yd": 10,
+      "carry_game_yd": 102,
+      "carry_best_yd": 105,
+      "run_yd": 16,
       "green_run_yd": null,
       "shots_measured": 0,
       "confidence": "estimated",
-      "source": "7Iからの内挿推定。スピン実測あり(5199〜5613rpm)だが距離データは未回収",
+      "source": "G440 SR 7Iの試打値からロフト差で内挿した推定値。実測待ち",
       "warn": null
     },
     {
       "id": "pw",
       "name": "PW",
       "full_name": "ピッチングウェッジ",
-      "model": "スリクソン ZR-600",
-      "shaft": null,
-      "loft_deg": null,
+      "model": "PING G440",
+      "shaft": "ALTA J CB BLUE / SR",
+      "loft_deg": 42.0,
       "in_bag": true,
       "recommendable": true,
       "skill": "normal",
-      "carry_game_yd": 90,
-      "carry_best_yd": 100,
-      "run_yd": 8,
+      "carry_game_yd": 92,
+      "carry_best_yd": 95,
+      "run_yd": 12,
       "green_run_yd": null,
       "shots_measured": 0,
       "confidence": "estimated",
-      "source": "7Iからの内挿推定。実測データなし",
-      "warn": "転がすか上げるかを先に決めてからボール位置を選ぶ"
+      "source": "G440 SR 7Iの試打値からロフト差で内挿した推定値。実測待ち",
+      "warn": "転がすか上げるかを先に決めてからボール位置を選ぶ(レッスンで習得済み)"
     },
     {
       "id": "sw56",
@@ -303,12 +360,11 @@
       "green_run_yd": null,
       "shots_measured": 8,
       "confidence": "measured",
-      "source": "2026-10 トラックマン計測8球。自分のクラブ。実戦基準=キャリー中央値58.9、好球時=きれいに当たった6球の上位3球平均64.2、ラン=中央値10.7。ヘッドスピード約25.5m/s・スピン約6,500rpm・着地角約37°。トップ1球(トータル101yd)・右へのミス1球を含む",
-      "warn": "AWではなくSW。トウ寄りに当たりやすく、左に出やすい(計測8球中7球)。PWとの間が大きく空いている"
+      "source": "2026-10 トラックマン計測8球(8割程度のスイング)。自分のクラブ。実戦基準=キャリー中央値58.9、好球時=きれいに当たった6球の上位3球平均64.2、ラン=中央値10.7。ヘッドスピード約25.5m/s・スピン約6,500rpm・着地角約37°。トップ1球(トータル101yd)・右へのミス1球を含む",
+      "warn": "AWではなくSW。トウ寄りに当たりやすく、左に出やすい(計測8球中7球)。PWとの間が大きく空いている",
+      "swing": "8割"
     }
   ],
-
-  "loft_note": "ZR-600にはロフトの刻印がない(2026-09-19 実物確認)。カタログ値も未取得のため loft_deg は null。番手間の距離は実測で埋める方が確実なため、ロフトへの依存を仕様から外した",
-
+  "loft_note": "6I〜PWは2026-10にPING G440(SR)へ買い替え。ロフトは6I 25.5°/7I 29°/PW 42°(8I・9Iは未確認)。5IはZR-600のまま(G440セットに5Iなし)で、実戦では使わない",
   "bag_note": "バッグ10本(1W/5UT/5I/6I/7I/8I/9I/PW/56°/パター)のうち5Iは実戦で打てないため、推奨対象は8本。5Iを抜いて52°を入れれば最優先ギャップ(70〜90yd帯)が1本で解消する"
 }

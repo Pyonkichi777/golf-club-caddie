@@ -297,13 +297,13 @@
       "in_bag": true,
       "recommendable": true,
       "skill": "normal",
-      "carry_game_yd": 112,
-      "carry_best_yd": 115,
-      "run_yd": 20,
+      "carry_game_yd": 116,
+      "carry_best_yd": 119,
+      "run_yd": 18,
       "green_run_yd": null,
       "shots_measured": 0,
       "confidence": "estimated",
-      "source": "G440 SR 7Iの試打値からロフト差で内挿した推定値。実測待ち",
+      "source": "2026-10 実測の9I(110yd)と、2026-09試打の7I(122yd)から推定。実測待ち",
       "warn": null
     },
     {
@@ -316,14 +316,14 @@
       "in_bag": true,
       "recommendable": true,
       "skill": "normal",
-      "carry_game_yd": 102,
-      "carry_best_yd": 105,
-      "run_yd": 16,
+      "carry_game_yd": 110,
+      "carry_best_yd": 113,
+      "run_yd": 11,
       "green_run_yd": null,
-      "shots_measured": 0,
-      "confidence": "estimated",
-      "source": "G440 SR 7Iの試打値からロフト差で内挿した推定値。実測待ち",
-      "warn": null
+      "shots_measured": 8,
+      "confidence": "measured",
+      "source": "2026-10 トラックマン計測8球・フルスイング。自分のクラブ。実戦基準=キャリー中央値110.2、好球時=きれいな4球の上位3球平均112.7、ラン=きれいな球の中央値11.4。きれいな球はスピン約5,100rpm・着地角約40°。右へ45ydのミス・トップ・低スピンの左へのミスを各1球含む",
+      "warn": "8球中3球が大きなミス(右へ45yd・トップ・左へ18yd)。左右どちらにも出る"
     },
     {
       "id": "pw",
@@ -335,13 +335,13 @@
       "in_bag": true,
       "recommendable": true,
       "skill": "normal",
-      "carry_game_yd": 92,
-      "carry_best_yd": 95,
-      "run_yd": 12,
+      "carry_game_yd": 100,
+      "carry_best_yd": 103,
+      "run_yd": 9,
       "green_run_yd": null,
       "shots_measured": 0,
       "confidence": "estimated",
-      "source": "G440 SR 7Iの試打値からロフト差で内挿した推定値。実測待ち",
+      "source": "2026-10 実測の9I(110yd)から1番手分(10yd)引いた推定。PWの計測データは保存されておらず未取得",
       "warn": "転がすか上げるかを先に決めてからボール位置を選ぶ(レッスンで習得済み)"
     },
     {
@@ -356,15 +356,16 @@
       "skill": "normal",
       "carry_game_yd": 59,
       "carry_best_yd": 64,
-      "run_yd": 10,
+      "run_yd": 9,
       "green_run_yd": null,
       "shots_measured": 8,
       "confidence": "measured",
-      "source": "2026-10 トラックマン計測8球(8割程度のスイング)。自分のクラブ。実戦基準=キャリー中央値58.9、好球時=きれいに当たった6球の上位3球平均64.2、ラン=中央値10.7。ヘッドスピード約25.5m/s・スピン約6,500rpm・着地角約37°。トップ1球(トータル101yd)・右へのミス1球を含む",
+      "source": "2026-10 トラックマン計測8球(8割程度のスイング)。自分のクラブ。実戦基準=キャリー中央値58.9、好球時=きれいに当たった6球の上位3球平均64.2、ラン=きれいな球の中央値9.4。ヘッドスピード約25.5m/s・スピン約6,500rpm・着地角約37°。トップ1球(トータル101yd)・右へのミス1球を含む",
       "warn": "AWではなくSW。トウ寄りに当たりやすく、左に出やすい(計測8球中7球)。PWとの間が大きく空いている",
       "swing": "8割"
     }
   ],
   "loft_note": "6I〜PWは2026-10にPING G440(SR)へ買い替え。ロフトは6I 25.5°/7I 29°/PW 42°(8I・9Iは未確認)。5IはZR-600のまま(G440セットに5Iなし)で、実戦では使わない",
-  "bag_note": "バッグ10本(1W/5UT/5I/6I/7I/8I/9I/PW/56°/パター)のうち5Iは実戦で打てないため、推奨対象は8本。5Iを抜いて52°を入れれば最優先ギャップ(70〜90yd帯)が1本で解消する"
+  "bag_note": "バッグ10本(1W/5UT/5I/6I/7I/8I/9I/PW/56°/パター)のうち5Iは実戦で打てないため、推奨対象は8本。5Iを抜いて52°を入れれば最優先ギャップ(70〜90yd帯)が1本で解消する",
+  "measure_rule": "実戦基準=全球のキャリー中央値(ミスも含む)、好球時=きれいに当たった球の上位3球の平均、ラン=きれいに当たった球の(トータル-キャリー)中央値。ミスの球は転がりすぎてランを歪めるため"
 }

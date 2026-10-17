@@ -259,13 +259,13 @@
       "in_bag": true,
       "recommendable": true,
       "skill": "good",
-      "carry_game_yd": 132,
-      "carry_best_yd": 135,
-      "run_yd": 25,
+      "carry_game_yd": 143,
+      "carry_best_yd": 146,
+      "run_yd": 21,
       "green_run_yd": null,
       "shots_measured": 0,
       "confidence": "estimated",
-      "source": "G440 SR 7Iの試打値からロフト差で内挿した推定値。実測待ち",
+      "source": "2026-10 実測の7I(133yd)にロフト差(3.5°)分の10ydを足した推定。実測待ち",
       "warn": null
     },
     {
@@ -278,14 +278,14 @@
       "in_bag": true,
       "recommendable": true,
       "skill": "good",
-      "carry_game_yd": 122,
-      "carry_best_yd": 125,
-      "run_yd": 25,
+      "carry_game_yd": 133,
+      "carry_best_yd": 136,
+      "run_yd": 19,
       "green_run_yd": null,
-      "shots_measured": 10,
+      "shots_measured": 8,
       "confidence": "measured",
-      "source": "2026-09 トラックマン試打10球(購入品と同スペックのG440 SR 7I)。キャリー平均121.6・芯を食った8球のキャリー平均125.1・トータル平均146.8。全10球が左曲がり(平均12yd)",
-      "warn": "左に曲がりやすい(試打10球すべて左・平均12yd)"
+      "source": "2026-10 トラックマン計測8球・フルスイング。自分のクラブ。実戦基準=キャリー中央値132.8、好球時=きれいな球の上位3球平均135.8(ミート率1.48の146yd球は計測の読み過ぎの可能性があるため除外)、ラン=きれいな球の中央値19.5。2026-09の試打(キャリー平均121.6)より約11yd長い",
+      "warn": "右へ大きく出る球がある(8球中2球が16〜20yd右)"
     },
     {
       "id": "8i",

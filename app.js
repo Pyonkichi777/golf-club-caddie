@@ -167,6 +167,8 @@ const pct = (x) => `${r0(x * 100)}%`;
 function skillHint(c) {
   const st = stabilityOf(c).rating;
   const sk = skillBase(c);
+  // 食い違いを承知で据え置くと本人が決めた番手は、見直しを促さない
+  if (c.skill_hold) return null;
   if (sk === 'good' && st === 'unstable') return '計測では不安定';
   if (sk === 'normal' && st === 'unstable') return '苦手にする候補';
   if (sk === 'weak' && st === 'stable') return '得意にする候補';
@@ -808,6 +810,7 @@ function renderSkills() {
     }
     const hint = skillHint(c);
     if (hint) nm.appendChild(el('span', 'skill-hint', hint));
+    if (c.skill_hold && !today[c.id]) nm.appendChild(el('span', 'skill-stab', c.skill_hold));
     row.appendChild(nm);
 
     const chips = el('div', 'chips');

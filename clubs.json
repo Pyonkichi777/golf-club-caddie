@@ -95,7 +95,8 @@
       "mid_iron": "ミドルアイアン",
       "short_iron": "ショートアイアン",
       "wedge": "ウェッジ"
-    }
+    },
+    "hold_note": "skill_hold がある番手は、本人が「データと食い違うのを承知で今の設定を据え置く」と決めたもの。見直しの一言の代わりにこの文言を出す"
   },
   "carry_set": {
     "count": 3,
@@ -402,6 +403,7 @@
       "in_bag": true,
       "recommendable": true,
       "skill": "normal",
+      "skill_hold": "次の計測まで普通",
       "carry_game_yd": 110,
       "carry_best_yd": 113,
       "run_yd": 11,

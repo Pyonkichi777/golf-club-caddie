@@ -132,6 +132,47 @@ function skillAdjust(c) {
   return s === 'good' ? -R.good_bonus_yd : s === 'weak' ? R.weak_penalty_yd : 0;
 }
 
+/* ─────────── 安定度（計測日の球のまとまり） ─────────── */
+
+/**
+ * 安定度は表示と注意書きにだけ使い、推奨の評価式には入れない。
+ * 得意/苦手は本人の設定なので、データで黙って書き換えないため。
+ */
+function stabilityOf(c) {
+  const s = c.stability;
+  const R = DATA.stability_rules;
+  if (!s || s.shots < R.min_shots) return { rating: 'none' };
+  const rate = s.miss / s.shots;
+  const rating =
+    rate >= R.unstable.miss_rate_min ||
+    s.carry_sd_yd >= R.unstable.carry_sd_min_yd ||
+    s.carry_iqr_yd >= R.unstable.carry_iqr_min_yd ? 'unstable' :
+    rate <= R.stable.miss_rate_max && s.carry_iqr_yd <= R.stable.carry_iqr_max_yd ? 'stable' :
+    'normal';
+  return { rating, rate, main: mainMiss(s) };
+}
+
+/** いちばん多いミスの種類。同数なら両方。1球ずつしかないものは傾向と呼ばない */
+function mainMiss(s) {
+  const kinds = [['右', s.miss_right], ['左', s.miss_left], ['低い球', s.miss_low]];
+  const top = Math.max(...kinds.map((k) => k[1]));
+  if (top < 2) return null;
+  return kinds.filter((k) => k[1] === top).map((k) => k[0]).join('・');
+}
+
+const stabLabel = (r) => DATA.stability_rules.labels[r];
+const pct = (x) => `${r0(x * 100)}%`;
+
+/** 本人の得意/苦手と計測の安定度が食い違うときだけ、見直しの一言を返す */
+function skillHint(c) {
+  const st = stabilityOf(c).rating;
+  const sk = skillBase(c);
+  if (sk === 'good' && st === 'unstable') return '計測では不安定';
+  if (sk === 'normal' && st === 'unstable') return '苦手にする候補';
+  if (sk === 'weak' && st === 'stable') return '得意にする候補';
+  return null;
+}
+
 /**
  * 実効距離に対する番手を、距離だけで選ぶ。
  * 仕様の「≧ を満たす最小番手」だけでは、ギャップ帯に落ちたとき
@@ -311,6 +352,8 @@ function renderCards() {
 }
 
 function confStars(c) {
+  const st = stabilityOf(c).rating;
+  if (c.confidence === 'measured' && st !== 'none') return `★★☆ 実測${c.shots_measured}球・${stabLabel(st)}`;
   if (c.confidence === 'measured') return `★★☆ 実測${c.shots_measured}球`;
   if (c.shots_measured >= 30) return '★★★';
   if (c.shots_measured >= 10) return '★★☆';
@@ -384,6 +427,21 @@ function renderNotes() {
   }
 
   if (game.club.warn) add('warn', `${game.club.name}：${game.club.warn}`);
+
+  // 安定度から、この場面で効く一言だけを足す（ミスの中身そのものは warn に書いてある）
+  const gs = game.club.stability;
+  if (gs && !game.unreachable) {
+    const st = stabilityOf(game.club);
+    if (state.aim === 'carry' && gs.miss_low >= 2) {
+      add('warn',
+        `${game.club.name}は低い球が${gs.shots}球中${gs.miss_low}球。ミスすると最大${gs.short_max_yd}yd手前に落ちました。` +
+        `越えるのが絶対条件なら1番手上を選んでください。`);
+    } else if (st.rating === 'unstable') {
+      add('warn',
+        `${game.club.name}は計測では${stabLabel('unstable')}（ミス率${pct(st.rate)}・キャリーのばらつき±${r0(gs.carry_sd_yd)}yd）。` +
+        `ピンではなくグリーンの広い側を狙ってください。`);
+    }
+  }
 
   const lie = CORR.lie[state.lie];
   if (lie.warn) add('warn', `${lie.label}：${lie.warn}`);
@@ -742,6 +800,14 @@ function renderSkills() {
     if (today[c.id]) {
       nm.appendChild(el('span', 'skill-today', `今日（普段は${skillLabel(skillBase(c))}）`));
     }
+    const st = stabilityOf(c).rating;
+    if (st !== 'none') {
+      const b = el('span', 'skill-stab', `計測: ${stabLabel(st)}`);
+      b.dataset.stab = st;
+      nm.appendChild(b);
+    }
+    const hint = skillHint(c);
+    if (hint) nm.appendChild(el('span', 'skill-hint', hint));
     row.appendChild(nm);
 
     const chips = el('div', 'chips');
@@ -766,6 +832,71 @@ function renderSkills() {
   $('skillReset').hidden = Object.keys(today).length === 0;
 }
 
+/* ─────────── 描画: 番手の傾向（安定度） ─────────── */
+
+function renderTrends() {
+  const R = DATA.stability_rules;
+  const clubs = usableClubs('carry_game_yd').sort((a, b) => b.carry_game_yd - a.carry_game_yd);
+
+  // 種類ごと: 球数とミスを足し合わせて見る。1本だけの種類もそのまま出す
+  const groups = $('trendGroups');
+  groups.textContent = '';
+  for (const [cat, label] of Object.entries(R.categories)) {
+    const members = clubs.filter((c) => c.category === cat);
+    if (!members.length) continue;
+    const measured = members.filter((c) => stabilityOf(c).rating !== 'none');
+    const item = el('div', 'trend-group');
+    const head = el('div', 'trend-head');
+    head.appendChild(el('span', 'trend-cat', label));
+    head.appendChild(el('span', 'trend-clubs', members.map((c) => c.name).join(' ')));
+    item.appendChild(head);
+
+    if (!measured.length) {
+      item.appendChild(el('div', 'trend-line', '今回の計測なし'));
+      groups.appendChild(item);
+      continue;
+    }
+    const sum = (k) => measured.reduce((n, c) => n + c.stability[k], 0);
+    const shots = sum('shots');
+    const pooled = {
+      miss_right: sum('miss_right'), miss_left: sum('miss_left'), miss_low: sum('miss_low'),
+    };
+    const main = mainMiss(pooled);
+    const mainN = main ? Math.max(pooled.miss_right, pooled.miss_left, pooled.miss_low) : 0;
+    const ratings = measured.map((c) => `${c.name} ${stabLabel(stabilityOf(c).rating)}`).join('・');
+    item.appendChild(el('div', 'trend-line',
+      `ミス率${pct(sum('miss') / shots)}（${shots}球）` +
+      (main ? `　主なミス：${main}（${mainN}球）` : '　目立つミスなし')));
+    item.appendChild(el('div', 'trend-sub', ratings));
+    const notes = measured.map((c) => c.stability.note).filter(Boolean);
+    if (notes.length) item.appendChild(el('div', 'trend-sub', notes.join(' ')));
+    groups.appendChild(item);
+  }
+
+  const body = $('stabBody');
+  body.textContent = '';
+  for (const c of clubs) {
+    const st = stabilityOf(c);
+    const tr = el('tr');
+    tr.appendChild(el('td', 'club-cell', c.name));
+    if (st.rating === 'none') {
+      const td = el('td', 'sub-num', '計測なし');
+      td.colSpan = 4;
+      td.style.textAlign = 'left';
+      tr.appendChild(td);
+    } else {
+      const s = c.stability;
+      tr.appendChild(el('td', 'sub-num', `${pct(st.rate)}`));
+      tr.appendChild(el('td', 'sub-num', `±${r0(s.carry_sd_yd)}`));
+      tr.appendChild(el('td', 'stab-miss', st.main || '—'));
+      const r = el('td', 'stab-rate', stabLabel(st.rating));
+      r.dataset.stab = st.rating;
+      tr.appendChild(r);
+    }
+    body.appendChild(tr);
+  }
+}
+
 function renderAll() {
   renderDist();
   renderCondSummary();
@@ -775,6 +906,7 @@ function renderAll() {
   renderNotes();
   renderLadder();
   renderSkills();
+  renderTrends();
   renderTable();
   renderLayup();
   save();

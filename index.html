@@ -130,6 +130,22 @@
   </div>
 
   <div class="panel">
+    <h2 class="sec-title">番手の傾向</h2>
+    <p class="sec-sub">2026-10の計測で、球がどれだけまとまったか。<strong>方向のミス</strong>＝左右15yd以上、
+      <strong>低い球</strong>＝打ち出しがその番手の中央値より5°以上低い球。推奨の計算には入れず、得意・苦手を見直す材料にします。</p>
+    <div class="trend-groups" id="trendGroups"></div>
+    <div class="table-wrap">
+      <table class="dtable stab-table">
+        <thead>
+          <tr><th>番手</th><th class="num">ミス率</th><th class="num">ばらつき</th><th>主なミス</th><th>判定</th></tr>
+        </thead>
+        <tbody id="stabBody"></tbody>
+      </table>
+    </div>
+    <p class="legend">ばらつき＝キャリーの標準偏差(yd)。安定＝ミス率40%以下かつキャリーの中間50%が10yd以内／不安定＝ミス率50%以上・標準偏差12yd以上・中間50%が15yd以上のいずれか</p>
+  </div>
+
+  <div class="panel">
     <h2 class="sec-title">距離表</h2>
     <p class="sec-sub">推奨は<strong>実戦基準</strong>（平均的な当たり）。<strong>好球時</strong>は計測で出た上限値。</p>
     <div class="table-wrap">

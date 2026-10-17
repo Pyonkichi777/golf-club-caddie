@@ -392,6 +392,27 @@ main { padding: 12px 12px 24px; max-width: 560px; margin: 0 auto; }
 .skill-row .chip.is-on[data-skill="good"] { background: var(--turf); border-color: var(--turf); }
 .skill-row .chip.is-on[data-skill="weak"] { background: var(--warn); border-color: var(--warn); }
 #skillReset { margin-top: 8px; }
+.skill-stab, .skill-hint {
+  display: block; font-family: var(--font-ui); font-size: 9.5px; font-weight: 700;
+  letter-spacing: .02em; line-height: 1.3; margin-top: 2px; color: var(--ink-2);
+}
+.skill-stab[data-stab="stable"] { color: var(--turf); }
+.skill-stab[data-stab="unstable"] { color: var(--warn); }
+.skill-hint { color: var(--flag); }
+
+/* ─────────── 番手の傾向 ─────────── */
+.trend-groups { display: flex; flex-direction: column; margin-bottom: 12px; }
+.trend-group { padding: 8px 0; border-bottom: 1px solid var(--rule-2); }
+.trend-group:last-child { border-bottom: 0; }
+.trend-head { display: flex; align-items: baseline; gap: 8px; }
+.trend-cat { font-size: 13px; font-weight: 800; }
+.trend-clubs { font-family: var(--font-num); font-weight: 700; font-size: 15px; color: var(--ink-2); }
+.trend-line { font-size: 12px; font-weight: 700; margin-top: 2px; }
+.trend-sub { font-size: 11px; color: var(--ink-2); margin-top: 2px; line-height: 1.5; }
+.stab-miss { font-size: 12px; font-weight: 700; }
+.stab-rate { font-size: 12px; font-weight: 800; }
+.stab-rate[data-stab="stable"] { color: var(--turf); }
+.stab-rate[data-stab="unstable"] { color: var(--warn); }
 
 /* ─────────── 刻む ─────────── */
 .green-line {

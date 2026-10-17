@@ -30,6 +30,11 @@
 <!-- ══════════════ 画面1: クラブ推奨 ══════════════ -->
 <section class="screen is-active" id="screen-pick" aria-label="クラブ推奨">
 
+  <div class="hole-strip" id="holeStrip" hidden>
+    <button type="button" class="hs-open" id="holeStripOpen"><span class="hs-text"></span><span class="hs-go">作戦 ›</span></button>
+    <button type="button" class="hs-clear" id="holeStripClear" aria-label="ホールの表示をやめる">×</button>
+  </div>
+
   <div class="panel dist-panel">
     <div class="panel-head">
       <h2>残り</h2>
@@ -204,12 +209,44 @@
   <div class="layup-out" id="layupOut"></div>
 </section>
 
+<!-- ══════════════ 画面4: コース ══════════════ -->
+<section class="screen" id="screen-course" aria-label="コース">
+  <div class="panel" id="courseImport">
+    <h2 class="sec-title">コースを取り込む</h2>
+    <p class="sec-sub">自分で用意したコースデータ（JSON）を取り込むと、ホールごとの作戦が出ます。
+      データは<strong>この端末にだけ</strong>保存され、どこにも送られません。</p>
+    <textarea class="course-text" id="courseText" rows="6" placeholder='{"schema": "caddie-course-v1", ... } を全文貼り付け'></textarea>
+    <div class="course-actions">
+      <button type="button" class="reset-btn" id="courseImportBtn">貼り付けた内容を取り込む</button>
+      <label class="reset-btn file-btn">ファイルを選ぶ<input type="file" id="courseFile" accept=".json,application/json" hidden></label>
+    </div>
+    <p class="note" data-kind="warn" id="courseErr" hidden></p>
+  </div>
+
+  <div id="courseView" hidden>
+    <div class="panel">
+      <div class="course-head">
+        <h2 class="course-name" id="courseName"></h2>
+        <span class="panel-note" id="courseTee"></span>
+      </div>
+      <div class="chips" id="greenChips"></div>
+      <div class="hole-chips" id="holeChips"></div>
+    </div>
+    <div class="panel" id="holeOut"></div>
+    <div class="panel">
+      <p class="sec-sub">作戦は実戦基準の距離（風・高低差の補正なし）で立てています。実際の1打ごとの番手は推奨画面で条件を入れて決めてください。</p>
+      <button type="button" class="reset-btn" id="courseClear">取り込んだコースを消す</button>
+    </div>
+  </div>
+</section>
+
 </main>
 
 <nav class="tabs" role="tablist">
   <button type="button" class="tab is-on" data-goto="pick" role="tab">推奨</button>
   <button type="button" class="tab" data-goto="table" role="tab">距離表</button>
   <button type="button" class="tab" data-goto="layup" role="tab">刻む</button>
+  <button type="button" class="tab" data-goto="course" role="tab">コース</button>
 </nav>
 
 <div class="boot-error" id="bootError" hidden></div>

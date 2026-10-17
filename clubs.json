@@ -297,14 +297,14 @@
       "in_bag": true,
       "recommendable": true,
       "skill": "normal",
-      "carry_game_yd": 116,
-      "carry_best_yd": 119,
+      "carry_game_yd": 112,
+      "carry_best_yd": 120,
       "run_yd": 18,
       "green_run_yd": null,
-      "shots_measured": 0,
-      "confidence": "estimated",
-      "source": "2026-10 実測の9I(110yd)と、2026-09試打の7I(122yd)から推定。実測待ち",
-      "warn": null
+      "shots_measured": 9,
+      "confidence": "measured",
+      "source": "2026-10 トラックマン計測9球・フルスイング。自分のクラブ。実戦基準=キャリー中央値112.0、好球時=きれいな6球の上位3球平均119.6、ラン=きれいな球の中央値17.8。打ち出し11〜14°の低い球が3球あり、中央値を下げている",
+      "warn": "低く出る球が出やすい(9球中3球が打ち出し11〜14°)。左に出やすい(9球中7球)"
     },
     {
       "id": "9i",

@@ -1,6 +1,6 @@
 {
   "schema_version": "0.7",
-  "updated": "2026-09-23",
+  "updated": "2026-10-17",
   "note": "クラブ距離データの唯一の正。アプリはここを読む。手で編集してよいが、必ずコミットすること。",
 
   "privacy": {
@@ -297,14 +297,14 @@
       "in_bag": true,
       "recommendable": true,
       "skill": "normal",
-      "carry_game_yd": 70,
-      "carry_best_yd": 80,
-      "run_yd": 5,
+      "carry_game_yd": 59,
+      "carry_best_yd": 64,
+      "run_yd": 10,
       "green_run_yd": null,
-      "shots_measured": 0,
-      "confidence": "estimated",
-      "source": "実測なし。スペックは実物で確認済み",
-      "warn": "AWではなくSW。PWとの間に20ydの空白がある"
+      "shots_measured": 8,
+      "confidence": "measured",
+      "source": "2026-10 トラックマン計測8球。自分のクラブ。実戦基準=キャリー中央値58.9、好球時=きれいに当たった6球の上位3球平均64.2、ラン=中央値10.7。ヘッドスピード約25.5m/s・スピン約6,500rpm・着地角約37°。トップ1球(トータル101yd)・右へのミス1球を含む",
+      "warn": "AWではなくSW。トウ寄りに当たりやすく、左に出やすい(計測8球中7球)。PWとの間が大きく空いている"
     }
   ],
 

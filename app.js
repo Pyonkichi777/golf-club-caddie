@@ -79,6 +79,14 @@ function usableClubs(field) {
   return DATA.clubs.filter((c) => c.recommendable && inBag(c) && c[field] != null);
 }
 
+/**
+ * その1打で実際に選べる番手。1W（tee_club）はライが「ティー」のときだけ入れる。
+ * フェアウェイから1Wで越える・刻む、といった現実的でない答えを出さないため。
+ */
+function shotClubs(field, teeOK = state.lie === 'tee') {
+  return usableClubs(field).filter((c) => teeOK || !c.tee_club);
+}
+
 /* ─────────── 今日のバッグ ─────────── */
 /* 持参しないクラブは推奨・持っていく3本・刻みの候補から外す。
    バッグの中身は日をまたいでも変わらないことが多いので、日付では戻さない（端末に保存）。 */
@@ -245,9 +253,9 @@ function skillHint(c) {
  * 152yd に対して 1W(175) のような非現実的な答えが出るため、
  * 上下の番手を見て近いほうを推奨し、差を必ず明示する。
  */
-function pickByDistance(field, at) {
+function pickByDistance(field, at, teeOK) {
   const eff = at ?? effective(toYd(state.dist));
-  const asc = usableClubs(field).sort((a, b) => basisYd(a, field) - basisYd(b, field));
+  const asc = shotClubs(field, teeOK).sort((a, b) => basisYd(a, field) - basisYd(b, field));
   if (!asc.length) return null;
 
   const v = (c) => basisYd(c, field);
@@ -279,8 +287,8 @@ function pickByDistance(field, at) {
  * 得意だからといって11yd足りないクラブを勧めると、手前のハザードに捕まるため。
  * 同点なら距離だけで選んだ番手を残す。
  */
-function pick(field, at) {
-  const pure = pickByDistance(field, at);
+function pick(field, at, teeOK) {
+  const pure = pickByDistance(field, at, teeOK);
   if (!pure) return null;
   const base = { ...pure, pure: pure.club, pureDelta: pure.delta, overridden: false };
   if (pure.unreachable) return base;
@@ -324,9 +332,9 @@ function carrySet(res, field) {
  * useAim=false（既定）はキャリー基準。クラブの買い足し判断は常にキャリーで見る。
  * useAim=true はラダーの目盛りと軸を揃えるため、表示中の基準に合わせる。
  */
-function gapList(useAim = false) {
+function gapList(useAim = false, clubs = usableClubs('carry_game_yd')) {
   const val = (c) => (useAim ? basisYd(c, 'carry_game_yd') : c.carry_game_yd);
-  const desc = usableClubs('carry_game_yd').sort((a, b) => val(b) - val(a));
+  const desc = [...clubs].sort((a, b) => val(b) - val(a));
   const out = [];
   for (let i = 0; i < desc.length - 1; i++) {
     const hi = desc[i];
@@ -445,6 +453,10 @@ function renderNotes() {
 
   if (game.unreachable) {
     add('gap', `実効距離が最長番手(${game.club.name} ${r0(v(game.club))}yd)を超えています。刻む前提でレイアップ地点を選んでください。`);
+    const tee = usableClubs(F).find((c) => c.tee_club);
+    if (tee && state.lie !== 'tee') {
+      add('info', `${tee.name}はティーショットのときだけ候補にしています。ティーから打つなら、条件の「ライ」で「ティー」を選んでください。`);
+    }
   } else if (game.inGap) {
     add('gap',
       `ギャップ帯です。${game.over.name}(${r0(v(game.over))}yd)では` +
@@ -562,7 +574,8 @@ function renderLadder() {
 
   const F = 'carry_game_yd';
   const v = (c) => basisYd(c, F);
-  const clubs = usableClubs(F).sort((a, b) => v(a) - v(b));
+  // ラダーは「この1打で選べる番手」だけを並べる（ティー以外では1Wを出さない）
+  const clubs = shotClubs(F).sort((a, b) => v(a) - v(b));
   if (!clubs.length) return;
 
   $('ladderTitle').textContent =
@@ -574,7 +587,7 @@ function renderLadder() {
 
   host.appendChild(el('div', 'ladder-axis'));
 
-  for (const g of gapList(true)) {
+  for (const g of gapList(true, clubs)) {
     const band = el('div', 'ladder-gap');
     band.dataset.pri = g.priority;
     band.style.left = pos(g.from) + '%';
@@ -652,6 +665,10 @@ function renderTable() {
     if (!c.recommendable) tr.className = 'is-out';
 
     const nameCell = el('td', 'club-cell', c.name);
+    if (!inBag(c)) {
+      tr.classList.add('is-out');
+      nameCell.appendChild(el('span', 'left-tag', '持参しない'));
+    }
     tr.appendChild(nameCell);
 
     if (c.carry_game_yd == null) {
@@ -672,6 +689,9 @@ function renderTable() {
   const gapsHost = $('gaps');
   gapsHost.textContent = '';
   const gaps = gapList();
+  if (LEFT_HOME.size) {
+    gapsHost.appendChild(el('p', 'layup-empty', '今日のバッグ（持参しないクラブを除く）で計算しています。'));
+  }
   if (!gaps.length) {
     gapsHost.appendChild(el('p', 'layup-empty', '15yd以上のギャップはありません。'));
   }
@@ -715,7 +735,7 @@ function renderLayup() {
   // 得意な番手を優先し、苦手な番手は避ける（評価＝余裕yd＋苦手ペナルティ−得意ボーナス）
   const MAX = DATA.skill_rules.max_override_yd;
   const need = effHz + M;
-  const crossersAsc = usableClubs('carry_game_yd')
+  const crossersAsc = shotClubs('carry_game_yd')
     .filter((c) => c.carry_game_yd >= need)
     .sort((a, b) => a.carry_game_yd - b.carry_game_yd);
   const shortest = crossersAsc[0];
@@ -763,7 +783,7 @@ function renderLayup() {
     return;
   }
 
-  const stoppers = usableClubs('carry_best_yd')
+  const stoppers = shotClubs('carry_best_yd')
     .filter((c) => c.carry_best_yd + runYd(c) <= effHz - M)
     .map((c) => {
       const landing = c.carry_game_yd + runYd(c);
@@ -804,7 +824,8 @@ function renderLayup() {
         !s.next.club ? '次打の番手なし'
           : s.next.unreachable ? `次も届かない（最長の${s.next.club.name}で${deltaText(s.next.delta)}）`
           : `次は ${s.next.club.name}（${deltaText(s.next.delta)}・${aimMode().label}）`);
-      tag.dataset.gap = s.next.inGap ? '1' : '0';
+      // ギャップ帯や、次打でも届かない刻みは注意色にする
+      tag.dataset.gap = s.next.inGap || s.next.unreachable ? '1' : '0';
       dt.appendChild(document.createElement('br'));
       dt.appendChild(tag);
       stopBlock.body.appendChild(o);
@@ -871,7 +892,8 @@ function renderLayup() {
 function nextShotFor(restYd) {
   // restYd は実効距離（条件補正済みのグリーンまでの距離から着地を引いたもの）。
   // 推奨画面の pick と同じ規則で選ぶので、刻んだ先で推奨画面に入れた番手と一致する
-  const res = pick('carry_game_yd', restYd);
+  // 刻んだ後はティーではないので、1Wは候補に入れない
+  const res = pick('carry_game_yd', restYd, false);
   if (!res) return { club: null, delta: 0, inGap: false };
   return { club: res.club, delta: res.delta, inGap: !!res.inGap, unreachable: !!res.unreachable };
 }
@@ -905,6 +927,8 @@ function renderCondSummary() {
 
   const node = $('condSummary');
   node.textContent = parts.join('・');
+  // 刻む画面も同じ条件で計算するので、何が効いているかをそこにも出す
+  $('layupCond').textContent = `条件：${parts.join('・')}（推奨画面と共通）`;
   const isDefault =
     state.elevYd === 0 && state.windDir === 'none' && state.weather === CORR.weather.default &&
     state.lie === 'fairway' && state.tempC === CORR.temperature.base_c &&
@@ -963,7 +987,9 @@ function renderSkills() {
 
 function renderTrends() {
   const R = DATA.stability_rules;
-  const clubs = usableClubs('carry_game_yd').sort((a, b) => b.carry_game_yd - a.carry_game_yd);
+  // 傾向は計測データの分析なので、今日のバッグ（持参しないクラブ）では絞らない
+  const clubs = DATA.clubs.filter((c) => c.recommendable && c.carry_game_yd != null)
+    .sort((a, b) => b.carry_game_yd - a.carry_game_yd);
 
   // 種類ごと: 球数とミスを足し合わせて見る。1本だけの種類もそのまま出す
   const groups = $('trendGroups');

@@ -129,6 +129,11 @@
       "diagonal_factor": 0.7
     },
     "lie": {
+      "tee": {
+        "label": "ティー",
+        "carry_loss_pct": 0,
+        "warn": null
+      },
       "fairway": {
         "label": "フェアウェイ",
         "carry_loss_pct": 0,
@@ -240,7 +245,8 @@
     },
     "layup_margin_yd": 10,
     "near_threshold_yd": 5,
-    "gap_threshold_yd": 15
+    "gap_threshold_yd": 15,
+    "tee_rule": "tee_club（1W）はライが「ティー」のときだけ候補にする。フェアウェイから1Wで打つ前提の推奨・刻みを出さないため。刻んだ後の次打もティーではないので1Wは使わない"
   },
   "update_rule": {
     "note": "距離計がないため実測キャリーを記録できない。ショート/オーバーの偏りから基準値を推定する(Phase 2で実装)",

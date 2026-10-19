@@ -17,7 +17,8 @@ const state = {
   hazard: 195,
   green: 240,
   elevYd: 0,
-  windDir: 'none',
+  windDir: 'none',   // none / head / head_x(斜め向かい) / tail / tail_x(斜め追い) / cross
+  weather: 'fine',
   windMs: 4,
   lie: 'fairway',
   tempC: 20,
@@ -45,12 +46,26 @@ function el(tag, cls, text) {
 /** 飛距離のロス率(%)。正の値ほど「飛ばない」＝実効距離が伸びる */
 function lossPct() {
   let p = 0;
-  if (state.windDir === 'head') p += CORR.wind.head_loss_pct_per_ms * state.windMs;
-  if (state.windDir === 'tail') p -= CORR.wind.tail_gain_pct_per_ms * state.windMs;
+  // 斜めの風は縦方向の成分だけを距離に効かせる
+  const W = CORR.wind;
+  const along = state.windDir.endsWith('_x') ? W.diagonal_factor : 1;
+  if (state.windDir.startsWith('head')) p += W.head_loss_pct_per_ms * state.windMs * along;
+  if (state.windDir.startsWith('tail')) p -= W.tail_gain_pct_per_ms * state.windMs * along;
+  p += weatherOf().carry_loss_pct;
   p += CORR.lie[state.lie].carry_loss_pct;
   const t = CORR.temperature;
   p += ((t.base_c - state.tempC) / 10) * t.loss_pct_per_10c_below_base;
   return p;
+}
+
+function weatherOf(id) {
+  const W = CORR.weather;
+  return W.presets.find((p) => p.id === (id || state.weather)) || W.presets[0];
+}
+
+/** フェアウェイでのラン(yd)。前日雨や雨の日は地面が柔らかく、転がりが減る */
+function runYd(club) {
+  return (club.run_yd || 0) * weatherOf().run_factor;
 }
 
 /** 見た目の距離(yd) → 実効距離(yd) */
@@ -84,7 +99,7 @@ function greenRunYd(club) {
  * スピンの少ない番手ほど転がるので、この区別は長い番手ほど大きく効く。
  */
 function basisYd(club, field) {
-  if (state.aim === 'run') return club[field] + (club.run_yd || 0);
+  if (state.aim === 'run') return club[field] + runYd(club);
   if (state.aim === 'green') return club[field] + greenRunYd(club);
   return club[field];
 }
@@ -323,7 +338,7 @@ function renderCards() {
     const carry = res.club[s.field];
     const second = state.aim === 'green'
       ? carry + greenRunYd(res.club)
-      : carry + (res.club.run_yd || 0);
+      : carry + runYd(res.club);
     const dist = el('div', 'card-carry');
     const line = (label, yd, on) => {
       const n = el('div', 'cn' + (on ? ' is-basis' : ''));
@@ -448,8 +463,13 @@ function renderNotes() {
   const lie = CORR.lie[state.lie];
   if (lie.warn) add('warn', `${lie.label}：${lie.warn}`);
 
+  const wx = weatherOf();
+  if (wx.warn) add('warn', `${wx.label}：${wx.warn}`);
+
   if (state.windDir === 'cross') {
     add('warn', '横風は距離を補正していません。曲がり幅だけ読んで、狙いを風上へずらしてください。');
+  } else if (state.windDir.endsWith('_x')) {
+    add('warn', `斜めの風は、縦方向の分（約${r0(CORR.wind.diagonal_factor * 100)}%）だけ距離に入れています。横方向の分で曲がるので、狙いを風上へずらしてください。`);
   }
 
   if (game.club.confidence !== 'measured') {
@@ -669,9 +689,9 @@ function renderLayup() {
   }
 
   const stoppers = usableClubs('carry_best_yd')
-    .filter((c) => c.carry_best_yd + c.run_yd <= effHz - M)
+    .filter((c) => c.carry_best_yd + runYd(c) <= effHz - M)
     .map((c) => {
-      const landing = c.carry_game_yd + c.run_yd;
+      const landing = c.carry_game_yd + runYd(c);
       const rest = effGr - landing;
       const next = nextShotFor(rest);
       return { c, landing, rest, next };
@@ -698,7 +718,7 @@ function renderLayup() {
       o.appendChild(club);
       const dt = el('div', 'opt-detail');
       dt.innerHTML =
-        `好球時でも <strong>${s.c.carry_best_yd + s.c.run_yd}yd</strong>（${r0(effHz - M)}ydの手前に止まる）<br>` +
+        `好球時でも <strong>${r0(s.c.carry_best_yd + runYd(s.c))}yd</strong>（${r0(effHz - M)}ydの手前に止まる）<br>` +
         `着地想定 <strong>${r0(s.landing)}yd</strong> → 残り <strong>${r0(s.rest)}yd / ${r0(toM(s.rest))}m</strong>`;
       o.appendChild(dt);
       const tag = el('span', 'opt-next',
@@ -764,7 +784,10 @@ function renderCondSummary() {
   else if (state.elevYd < 0) parts.push(`打ち下ろし${-state.elevYd}yd`);
   else parts.push('平坦');
 
-  const wind = { none: '無風', head: '向かい', tail: '追い', cross: '横風' }[state.windDir];
+  const wx = weatherOf();
+  if (wx.id !== CORR.weather.default) parts.push(wx.label);
+
+  const wind = WIND_LABELS[state.windDir];
   parts.push(state.windDir === 'none' ? wind : `${wind}${state.windMs}m/s`);
 
   parts.push(CORR.lie[state.lie].label);
@@ -782,7 +805,7 @@ function renderCondSummary() {
   const node = $('condSummary');
   node.textContent = parts.join('・');
   const isDefault =
-    state.elevYd === 0 && state.windDir === 'none' &&
+    state.elevYd === 0 && state.windDir === 'none' && state.weather === CORR.weather.default &&
     state.lie === 'fairway' && state.tempC === CORR.temperature.base_c &&
     state.greenFirm === gf.default;
   node.dataset.on = isDefault ? '0' : '1';
@@ -946,6 +969,22 @@ function elevItems() {
   ];
 }
 
+const WIND_LABELS = {
+  none: '無風', head: '向かい', head_x: '斜め向かい', tail: '追い', tail_x: '斜め追い', cross: '横',
+};
+
+/**
+ * 天気を切り替える。雨の後はグリーンも柔らかいので、硬さも連動させる。
+ * 晴れに戻したときは、天気が勝手に変えた分だけ元に戻す（手で選んだ硬さは残す）。
+ */
+function pickWeather(id) {
+  const prev = weatherOf();
+  const next = weatherOf(id);
+  state.weather = next.id;
+  if (next.green) state.greenFirm = next.green;
+  else if (prev.green && state.greenFirm === prev.green) state.greenFirm = CORR.green_firmness.default;
+}
+
 function refreshChips() {
   // 狙いの説明文は常時は出さない。既定(グリーンに乗せる)は自明で、
   // 切り替えたときだけ注意書きに出せば足りる。ここは高さが答えを押し下げる
@@ -955,12 +994,15 @@ function refreshChips() {
 
   buildChips($('elevChips'), elevItems(), (i) => i.v === state.elevYd, (i) => { state.elevYd = i.v; });
 
-  buildChips($('windDirChips'), [
-    { label: '無風', v: 'none' },
-    { label: '向かい', v: 'head', tone: 'flag' },
-    { label: '追い', v: 'tail' },
-    { label: '横', v: 'cross', tone: 'flag' },
-  ], (i) => i.v === state.windDir, (i) => { state.windDir = i.v; });
+  buildChips($('weatherChips'),
+    CORR.weather.presets.map((p) => ({ label: p.label, v: p.id })),
+    (i) => i.v === state.weather, (i) => pickWeather(i.v));
+
+  buildChips($('windDirChips'),
+    Object.entries(WIND_LABELS).map(([v, label]) => ({
+      label, v, tone: v.startsWith('head') || v === 'cross' ? 'flag' : undefined,
+    })),
+    (i) => i.v === state.windDir, (i) => { state.windDir = i.v; });
 
   const wp = CORR.wind.presets_ms;
   const speedRow = $('windSpeedRow');
@@ -1041,6 +1083,7 @@ function bindInputs() {
     state.elevYd = 0; state.windDir = 'none'; state.windMs = CORR.wind.presets_ms.mid;
     state.lie = 'fairway'; state.tempC = CORR.temperature.base_c;
     state.greenFirm = CORR.green_firmness.default;
+    state.weather = CORR.weather.default;
     refreshChips(); renderAll();
   });
 
@@ -1095,6 +1138,8 @@ async function boot() {
   if (!CORR.lie[state.lie]) state.lie = 'fairway';
   if (!aimMode()) state.aim = AIM.default;
   if (!CORR.green_firmness.presets.some((p) => p.id === state.greenFirm)) state.greenFirm = CORR.green_firmness.default;
+  if (!CORR.weather.presets.some((p) => p.id === state.weather)) state.weather = CORR.weather.default;
+  if (!WIND_LABELS[state.windDir]) state.windDir = 'none';
 
   const usable = DATA.clubs.filter((c) => c.recommendable).length;
   $('bagNote').textContent = `推奨対象 ${usable}本 / バッグ ${DATA.clubs.length + 1}本`;

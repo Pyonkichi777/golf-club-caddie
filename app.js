@@ -245,8 +245,8 @@ function skillHint(c) {
  * 152yd に対して 1W(175) のような非現実的な答えが出るため、
  * 上下の番手を見て近いほうを推奨し、差を必ず明示する。
  */
-function pickByDistance(field) {
-  const eff = effective(toYd(state.dist));
+function pickByDistance(field, at) {
+  const eff = at ?? effective(toYd(state.dist));
   const asc = usableClubs(field).sort((a, b) => basisYd(a, field) - basisYd(b, field));
   if (!asc.length) return null;
 
@@ -279,13 +279,13 @@ function pickByDistance(field) {
  * 得意だからといって11yd足りないクラブを勧めると、手前のハザードに捕まるため。
  * 同点なら距離だけで選んだ番手を残す。
  */
-function pick(field) {
-  const pure = pickByDistance(field);
+function pick(field, at) {
+  const pure = pickByDistance(field, at);
   if (!pure) return null;
   const base = { ...pure, pure: pure.club, pureDelta: pure.delta, overridden: false };
   if (pure.unreachable) return base;
 
-  const eff = effective(toYd(state.dist));
+  const eff = at ?? effective(toYd(state.dist));
   const v = (c) => basisYd(c, field);
   const score = (c) => Math.abs(v(c) - eff) + skillAdjust(c);
   const MAX = DATA.skill_rules.max_override_yd;
@@ -711,9 +711,19 @@ function renderLayup() {
 
   /* ── 越える ── */
   const crossBlock = block('越える', `実戦基準キャリー ≧ ${r0(effHz)} + ${M}yd`);
-  const crossers = usableClubs('carry_game_yd')
-    .filter((c) => c.carry_game_yd >= effHz + M)
+  // 越えられる番手のうち最短が基本。ただし推奨画面と同じく、1番手（max_override_yd）以内なら
+  // 得意な番手を優先し、苦手な番手は避ける（評価＝余裕yd＋苦手ペナルティ−得意ボーナス）
+  const MAX = DATA.skill_rules.max_override_yd;
+  const need = effHz + M;
+  const crossersAsc = usableClubs('carry_game_yd')
+    .filter((c) => c.carry_game_yd >= need)
     .sort((a, b) => a.carry_game_yd - b.carry_game_yd);
+  const shortest = crossersAsc[0];
+  const crossScore = (c) => (c.carry_game_yd - need) + skillAdjust(c);
+  const crossBest = shortest && crossersAsc
+    .filter((c) => c.carry_game_yd - shortest.carry_game_yd <= MAX)
+    .reduce((a, c) => (crossScore(c) < crossScore(a) ? c : a), shortest);
+  const crossers = crossBest ? [crossBest, ...crossersAsc.filter((c) => c !== crossBest)] : [];
 
   if (!crossers.length) {
     crossBlock.body.appendChild(el('p', 'layup-empty',
@@ -721,12 +731,25 @@ function renderLayup() {
   } else {
     crossers.slice(0, 2).forEach((c, i) => {
       const o = el('div', 'opt' + (i === 0 ? ' opt--best' : ''));
-      o.appendChild(el('div', 'opt-club', c.name));
+      o.appendChild(optClub(c, i === 0));
       const dt = el('div', 'opt-detail');
       dt.innerHTML = `実戦基準 <strong>${c.carry_game_yd}yd</strong>。悪い当たりでも越えます（余裕 ${r0(c.carry_game_yd - effHz)}yd）。`;
       o.appendChild(dt);
       crossBlock.body.appendChild(o);
     });
+    if (crossBest !== shortest) {
+      crossBlock.body.appendChild(layupNote('skill',
+        skillOf(shortest) === 'weak'
+          ? `苦手な${shortest.name}を避けて${crossBest.name}にしました（${crossBest.carry_game_yd - shortest.carry_game_yd}yd長い番手）。奥にも危険があるときは${shortest.name}も検討してください。`
+          : `得意な${crossBest.name}を優先しました（${shortest.name}より${crossBest.carry_game_yd - shortest.carry_game_yd}yd長い）。奥にも危険があるときは${shortest.name}も検討してください。`));
+    }
+    // 計測で低い球が出やすい番手は、ミスしたときにハザードへ届かないことがある
+    const st = crossBest.stability;
+    if (st && st.miss_low >= 2 && crossBest.carry_game_yd - st.short_max_yd < effHz) {
+      crossBlock.body.appendChild(layupNote('warn',
+        `${crossBest.name}は低い球が${st.shots}球中${st.miss_low}球出ていて、ミスすると最大${st.short_max_yd}yd手前に落ちました。` +
+        `その場合はハザードに届きません。不安なら1番手上を選んでください。`));
+    }
   }
   host.appendChild(crossBlock.root);
 
@@ -757,31 +780,37 @@ function renderLayup() {
     // 刻みは「安全な範囲で最大限前に出す」が原則。
     // ただし次打がギャップ帯に落ちる刻みは、1つ手前の番手に落とす。
     // （stoppers は着地距離の降順）
+    // 最も前に出せる刻みから1番手（max_override_yd）以内なら、得意な番手を優先し苦手は避ける
     const nonGap = stoppers.filter((s) => !s.next.inGap);
-    const best = (nonGap.length ? nonGap : stoppers)[0];
+    const pool = nonGap.length ? nonGap : stoppers;
+    const front = pool[0];
+    const stopScore = (s) => (front.landing - s.landing) + skillAdjust(s.c);
+    const best = pool
+      .filter((s) => front.landing - s.landing <= MAX)
+      .reduce((a, s) => (stopScore(s) < stopScore(a) ? s : a), front);
 
     // 推奨は必ず先頭に置く。一番下にあると読まれない
     const ordered = [best, ...stoppers.filter((s) => s !== best)].slice(0, 3);
 
     ordered.forEach((s) => {
       const o = el('div', 'opt' + (s === best ? ' opt--best' : ''));
-      const club = el('div', 'opt-club', s.c.name);
-      if (s === best) club.appendChild(el('span', 'opt-badge', '推奨'));
-      o.appendChild(club);
+      o.appendChild(optClub(s.c, s === best));
       const dt = el('div', 'opt-detail');
       dt.innerHTML =
         `好球時でも <strong>${r0(s.c.carry_best_yd + runYd(s.c))}yd</strong>（${r0(effHz - M)}ydの手前に止まる）<br>` +
         `着地想定 <strong>${r0(s.landing)}yd</strong> → 残り <strong>${r0(s.rest)}yd / ${r0(toM(s.rest))}m</strong>`;
       o.appendChild(dt);
       const tag = el('span', 'opt-next',
-        s.next.club ? `次は ${s.next.club.name}（${deltaText(s.next.delta)}）` : '次打の番手なし');
+        !s.next.club ? '次打の番手なし'
+          : s.next.unreachable ? `次も届かない（最長の${s.next.club.name}で${deltaText(s.next.delta)}）`
+          : `次は ${s.next.club.name}（${deltaText(s.next.delta)}・${aimMode().label}）`);
       tag.dataset.gap = s.next.inGap ? '1' : '0';
       dt.appendChild(document.createElement('br'));
       dt.appendChild(tag);
       stopBlock.body.appendChild(o);
     });
 
-    const skipped = stoppers[0] !== best ? stoppers[0] : null;
+    const skipped = stoppers[0] !== front ? stoppers[0] : null;
     if (skipped) {
       const n = el('div', 'note',
         `${skipped.c.name}ならあと${r0(skipped.landing - best.landing)}yd前に出せますが、` +
@@ -789,6 +818,13 @@ function renderLayup() {
       n.dataset.kind = 'info';
       n.style.marginTop = '10px';
       stopBlock.body.appendChild(n);
+    }
+
+    if (best !== front && best.c !== front.c) {
+      stopBlock.body.appendChild(layupNote('skill',
+        skillOf(front.c) === 'weak'
+          ? `苦手な${front.c.name}を避けて${best.c.name}で刻みます（${r0(front.landing - best.landing)}yd手前）。`
+          : `得意な${best.c.name}で刻みます（${front.c.name}より${r0(front.landing - best.landing)}yd手前）。`));
     }
 
     if (best.next.inGap) {
@@ -799,6 +835,25 @@ function renderLayup() {
     }
   }
   host.appendChild(stopBlock.root);
+
+  function optClub(c, isBest) {
+    const club = el('div', 'opt-club', c.name);
+    const sk = skillOf(c);
+    if (sk !== 'normal') {
+      const tag = el('span', 'skill-tag', skillLabel(sk));
+      tag.dataset.skill = sk;
+      club.appendChild(tag);
+    }
+    if (isBest) club.appendChild(el('span', 'opt-badge', '推奨'));
+    return club;
+  }
+
+  function layupNote(kind, text) {
+    const n = el('div', 'note', text);
+    n.dataset.kind = kind;
+    n.style.marginTop = '10px';
+    return n;
+  }
 
   function block(title, rule) {
     const root = el('div', 'layup-block');
@@ -814,17 +869,11 @@ function renderLayup() {
 
 /** ある残り距離に対して、どの番手が来るか */
 function nextShotFor(restYd) {
-  const asc = usableClubs('carry_game_yd').sort((a, b) => a.carry_game_yd - b.carry_game_yd);
-  const over = asc.find((c) => c.carry_game_yd >= restYd);
-  const under = [...asc].reverse().find((c) => c.carry_game_yd < restYd);
-  const NEAR = CORR.near_threshold_yd;
-  if (!over && !under) return { club: null, delta: 0, inGap: false };
-  if (!over) return { club: under, delta: under.carry_game_yd - restYd, inGap: false };
-  if (!under) return { club: over, delta: over.carry_game_yd - restYd, inGap: false };
-  const dOver = over.carry_game_yd - restYd;
-  const dUnder = restYd - under.carry_game_yd;
-  const club = dOver <= dUnder ? over : under;
-  return { club, delta: club.carry_game_yd - restYd, inGap: dOver > NEAR && dUnder > NEAR };
+  // restYd は実効距離（条件補正済みのグリーンまでの距離から着地を引いたもの）。
+  // 推奨画面の pick と同じ規則で選ぶので、刻んだ先で推奨画面に入れた番手と一致する
+  const res = pick('carry_game_yd', restYd);
+  if (!res) return { club: null, delta: 0, inGap: false };
+  return { club: res.club, delta: res.delta, inGap: !!res.inGap, unreachable: !!res.unreachable };
 }
 
 /* ─────────── 描画: 全体 ─────────── */
@@ -1144,6 +1193,12 @@ function bindInputs() {
     state.greenFirm = CORR.green_firmness.default;
     state.weather = CORR.weather.default;
     refreshChips(); renderAll();
+  });
+
+  // 推奨画面の残り距離を、刻む画面の「グリーンまで」に引き継ぐ（単位は共通なのでそのまま）
+  document.querySelector('.jump-layup').addEventListener('click', () => {
+    state.green = state.dist;
+    renderAll();
   });
 
   document.querySelectorAll('[data-goto]').forEach((b) => {

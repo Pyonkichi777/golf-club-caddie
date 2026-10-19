@@ -126,6 +126,16 @@
 <!-- ══════════════ 画面2: 距離表 ══════════════ -->
 <section class="screen" id="screen-table" aria-label="距離表">
   <div class="panel">
+    <div class="bag-head">
+      <h2 class="sec-title">今日のバッグ</h2>
+      <span class="bag-count" id="bagCount"></span>
+    </div>
+    <p class="sec-sub">持参しないクラブをタップして外すと、推奨・持っていく3本・刻みの候補に出なくなります。選んだ内容は次のラウンドまで残ります。</p>
+    <div class="bag-list" id="bagList"></div>
+    <button type="button" class="reset-btn" id="bagReset" hidden>すべて持参に戻す</button>
+  </div>
+
+  <div class="panel">
     <h2 class="sec-title">得意・苦手</h2>
     <p class="sec-sub">ズレが1番手（10yd）以内なら<strong>得意</strong>な番手を優先し、<strong>苦手</strong>な番手は避けます。
       ここで変えた分は<strong>今日だけ</strong>で、日付が変わると普段の設定に戻ります。</p>

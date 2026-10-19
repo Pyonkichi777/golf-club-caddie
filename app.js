@@ -76,7 +76,56 @@ function effective(baseYd) {
 }
 
 function usableClubs(field) {
-  return DATA.clubs.filter((c) => c.recommendable && c[field] != null);
+  return DATA.clubs.filter((c) => c.recommendable && inBag(c) && c[field] != null);
+}
+
+/* ─────────── 今日のバッグ ─────────── */
+/* 持参しないクラブは推奨・持っていく3本・刻みの候補から外す。
+   バッグの中身は日をまたいでも変わらないことが多いので、日付では戻さない（端末に保存）。 */
+
+const BAG_KEY = 'caddie.bag.v1';
+let LEFT_HOME = new Set();   // 持参しないクラブのid
+
+const inBag = (c) => !LEFT_HOME.has(c.id);
+
+function loadBag() {
+  try {
+    const ids = JSON.parse(localStorage.getItem(BAG_KEY) || '[]');
+    LEFT_HOME = new Set(ids.filter((id) => DATA.clubs.some((c) => c.id === id)));
+  } catch (_) { LEFT_HOME = new Set(); }
+}
+
+function saveBag() {
+  try { localStorage.setItem(BAG_KEY, JSON.stringify([...LEFT_HOME])); } catch (_) { /* プライベートモード等 */ }
+}
+
+function renderBag() {
+  const host = $('bagList');
+  host.textContent = '';
+  const clubs = [...DATA.clubs].sort((a, b) => (b.carry_game_yd ?? -1) - (a.carry_game_yd ?? -1));
+  for (const c of clubs) {
+    const on = inBag(c);
+    const b = el('button', 'chip bag-chip' + (on ? ' is-on' : ''));
+    b.type = 'button';
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.appendChild(el('span', 'bag-name', c.name));
+    b.appendChild(el('span', 'bag-sub',
+      !c.recommendable ? '推奨対象外' : on ? `${c.carry_game_yd}yd` : '持参しない'));
+    b.addEventListener('click', () => {
+      if (on) LEFT_HOME.add(c.id); else LEFT_HOME.delete(c.id);
+      saveBag();
+      renderAll();
+    });
+    host.appendChild(b);
+  }
+  // パターは推奨の対象ではないが、本数には数える
+  const carried = DATA.clubs.filter(inBag).length + 1;
+  $('bagCount').textContent = `持参 ${carried}本（パター含む）`;
+  $('bagCount').dataset.over = carried > 14 ? '1' : '0';
+  $('bagReset').hidden = LEFT_HOME.size === 0;
+
+  const usable = DATA.clubs.filter((c) => c.recommendable && inBag(c)).length;
+  $('bagNote').textContent = `推奨対象 ${usable}本 / 持参 ${carried}本`;
 }
 
 /**
@@ -433,6 +482,9 @@ function renderNotes() {
   } else if (skillOf(game.club) === 'weak' && !game.unreachable) {
     add('skill', `${game.club.name}は苦手クラブですが、距離が合うのはこの番手だけです。`);
   }
+
+  const left = DATA.clubs.filter((c) => !inBag(c));
+  if (left.length) add('info', `持参しないクラブを除いて推奨しています：${left.map((c) => c.name).join('・')}`);
 
   const overrides = Object.entries(todaySkills());
   if (overrides.length) {
@@ -931,6 +983,7 @@ function renderAll() {
   renderCarrySet();
   renderNotes();
   renderLadder();
+  renderBag();
   renderSkills();
   renderTrends();
   renderTable();
@@ -1073,6 +1126,12 @@ function bindInputs() {
   numBind('hzValue', 'hazard', 400);
   numBind('greenValue', 'green', 500);
 
+  $('bagReset').addEventListener('click', () => {
+    LEFT_HOME = new Set();
+    saveBag();
+    renderAll();
+  });
+
   $('skillReset').addEventListener('click', () => {
     TODAY = { date: todayStr(), skills: {} };
     saveToday();
@@ -1135,14 +1194,13 @@ async function boot() {
   state.aim = AIM.default || 'green';
   load();
   loadToday();
+  loadBag();
   if (!CORR.lie[state.lie]) state.lie = 'fairway';
   if (!aimMode()) state.aim = AIM.default;
   if (!CORR.green_firmness.presets.some((p) => p.id === state.greenFirm)) state.greenFirm = CORR.green_firmness.default;
   if (!CORR.weather.presets.some((p) => p.id === state.weather)) state.weather = CORR.weather.default;
   if (!WIND_LABELS[state.windDir]) state.windDir = 'none';
 
-  const usable = DATA.clubs.filter((c) => c.recommendable).length;
-  $('bagNote').textContent = `推奨対象 ${usable}本 / バッグ ${DATA.clubs.length + 1}本`;
 
   refreshChips();
   bindInputs();

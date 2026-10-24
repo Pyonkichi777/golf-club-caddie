@@ -94,7 +94,9 @@ function shotClubs(field, teeOK = state.lie === 'tee') {
 const BAG_KEY = 'caddie.bag.v1';
 let LEFT_HOME = new Set();   // 持参しないクラブのid
 
-const inBag = (c) => !LEFT_HOME.has(c.id);
+/** 手元にあるクラブ（売却したものは in_bag:false で残し、計測の記録だけ持つ） */
+const owned = (c) => c.in_bag !== false;
+const inBag = (c) => owned(c) && !LEFT_HOME.has(c.id);
 
 function loadBag() {
   try {
@@ -110,7 +112,7 @@ function saveBag() {
 function renderBag() {
   const host = $('bagList');
   host.textContent = '';
-  const clubs = [...DATA.clubs].sort((a, b) => (b.carry_game_yd ?? -1) - (a.carry_game_yd ?? -1));
+  const clubs = DATA.clubs.filter(owned).sort((a, b) => (b.carry_game_yd ?? -1) - (a.carry_game_yd ?? -1));
   for (const c of clubs) {
     const on = inBag(c);
     const b = el('button', 'chip bag-chip' + (on ? ' is-on' : ''));
@@ -341,10 +343,10 @@ function gapList(useAim = false, clubs = usableClubs('carry_game_yd')) {
     const lo = desc[i + 1];
     const yd = val(hi) - val(lo);
     if (yd >= CORR.gap_threshold_yd) {
-      // ドライバーは基本ティーショット専用。1Wと次の番手の間が空くのは
-      // どのバッグでも起きることで、埋める対象ではないため優先度を下げる
+      // 1Wはティー専用なので、1Wと次の番手の間は「フェアウェイから打てる最長距離の不足」になる。
+      // パー5の2打目や長いパー4で効くため、埋める対象として扱う（ただし最優先にはしない）
       const teeSide = hi.tee_club || lo.tee_club;
-      const priority = teeSide ? 'low' : yd >= 20 ? 'high' : 'mid';
+      const priority = teeSide ? 'mid' : yd >= 20 ? 'high' : 'mid';
       out.push({ hi, lo, yd, from: lo.carry_game_yd, to: hi.carry_game_yd, priority, teeSide });
     }
   }
@@ -495,7 +497,7 @@ function renderNotes() {
     add('skill', `${game.club.name}は苦手クラブですが、距離が合うのはこの番手だけです。`);
   }
 
-  const left = DATA.clubs.filter((c) => !inBag(c));
+  const left = DATA.clubs.filter((c) => owned(c) && !inBag(c));
   if (left.length) add('info', `持参しないクラブを除いて推奨しています：${left.map((c) => c.name).join('・')}`);
 
   const overrides = Object.entries(todaySkills());
@@ -654,7 +656,7 @@ function renderTable() {
   const body = $('dtableBody');
   body.textContent = '';
 
-  const all = [...DATA.clubs].sort((a, b) => {
+  const all = DATA.clubs.filter(owned).sort((a, b) => {
     const av = a.carry_game_yd == null ? -1 : a.carry_game_yd;
     const bv = b.carry_game_yd == null ? -1 : b.carry_game_yd;
     return bv - av;
@@ -703,7 +705,7 @@ function renderTable() {
     bodyEl.appendChild(el('div', 'gap-where', `${g.hi.name} ${g.to}yd → ${g.lo.name} ${g.from}yd`));
     bodyEl.appendChild(el('div', 'gap-why',
       g.teeSide
-        ? `${g.hi.name}はティーショット用なので、この空白は埋める対象ではありません。`
+        ? `${g.hi.name}はティー専用なので、フェアウェイから${g.from}ydより先を打てるクラブがありません（7Wなどで埋める候補）。`
         : `${g.from}〜${g.to}yd（${r0(toM(g.from))}〜${r0(toM(g.to))}m）がフルショットで埋まりません。`));
     item.appendChild(bodyEl);
     gapsHost.appendChild(item);
@@ -988,7 +990,7 @@ function renderSkills() {
 function renderTrends() {
   const R = DATA.stability_rules;
   // 傾向は計測データの分析なので、今日のバッグ（持参しないクラブ）では絞らない
-  const clubs = DATA.clubs.filter((c) => c.recommendable && c.carry_game_yd != null)
+  const clubs = DATA.clubs.filter((c) => owned(c) && c.recommendable && c.carry_game_yd != null)
     .sort((a, b) => b.carry_game_yd - a.carry_game_yd);
 
   // 種類ごと: 球数とミスを足し合わせて見る。1本だけの種類もそのまま出す
